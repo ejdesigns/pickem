@@ -32,7 +32,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    // Current week first (also resolves what "current" is per ESPN).
+    // Current week first (also resolves what "current" is per nflverse).
     const current = await ingestWeek();
     const results = [current];
 

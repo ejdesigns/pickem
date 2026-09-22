@@ -2,7 +2,7 @@
 
 A real multiplayer NFL pick'em app. Create a group, share the invite code,
 pick winners before kickoff, and climb the season leaderboard. Scores update
-automatically from ESPN.
+automatically from nflverse.
 
 **MVP scope:** NFL only · straight winner picks · no spreads · no confidence
 points · no push notifications · mobile-friendly web (no native apps).
@@ -15,16 +15,16 @@ points · no push notifications · mobile-friendly web (no native apps).
 2. **Create a group** (or join one with a 6-character invite code).
 3. **Make picks** — tap a team for each game. Picks lock at kickoff (enforced
    server-side, not just in the UI).
-4. **Scores sync automatically** — a scheduled job pulls results from ESPN
+4. **Scores sync automatically** — a scheduled job pulls results from nflverse
    every 30 minutes during the season and the leaderboard updates itself.
 
 ## Tech
 
 - **Next.js 14** (App Router) + TypeScript + Tailwind CSS
 - **Supabase** — Postgres database + email auth (Row Level Security on)
-- **ESPN scoreboard API** — free, unofficial endpoint for schedules/scores
-  (`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard`)
-- **Vercel Cron** — hits `/api/cron/score` every 30 min
+- **nflverse schedules** — free, no-key CSV for schedules/scores
+  (`https://github.com/nflverse/nflverse-data` schedules release)
+- **Vercel Cron** — hits `/api/cron/score` daily
 
 ---
 
@@ -126,12 +126,12 @@ app/
     groups/[id]/games/        GET games + my picks for a week
     groups/[id]/leaderboard/  GET computed standings
     picks/route.ts            POST upsert pick (lock enforced)
-    games/ingest/route.ts     GET pull ESPN scoreboard into DB
+    games/ingest/route.ts     GET pull nflverse schedule/scores into DB
     games/current-week/        GET latest week in DB
     cron/score/route.ts       GET secured scorer (Vercel Cron)
 lib/
-  espn.ts                     ESPN fetch + normalize
-  ingest.ts                   upsert ESPN data into Supabase
+  nflverse.ts                 nflverse fetch + normalize
+  ingest.ts                   upsert nflverse data into Supabase
   pickem.ts                   invite codes, winners, standings math
   api-auth.ts                 requireUser / requireMember helpers
   supabase/{client,server,admin}.ts
@@ -143,6 +143,6 @@ vercel.json                   cron schedule
 
 - Weekly pick reminders (email via Resend, or push)
 - Confidence points / spread picks
-- More sports (ESPN has the same API shape for NBA, etc.)
+- More sports (other leagues need their own data source)
 - Group chat / trash talk board
 - Hide other members' picks until games lock

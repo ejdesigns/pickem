@@ -155,7 +155,7 @@ export default function GroupPage({ params }: { params: { id: string } }) {
           <p className="mt-6 text-slate-400">Loading games…</p>
         ) : games.length === 0 ? (
           <p className="mt-6 rounded-xl bg-slate-900 p-5 text-sm text-slate-400">
-            No games loaded for Week {week} yet. Games are pulled from ESPN
+            No games loaded for Week {week} yet. Games are pulled from nflverse
             automatically — check back soon, or ask the group admin to run the
             ingest.
           </p>
