@@ -1,8 +1,10 @@
 /**
  * The Odds API v4 client (https://the-odds-api.com) — free tier, no key cost.
  *
- * Pulls US + UK + EU sportsbooks in ONE request (regions=us,uk,eu) so the
- * market view is global, not US-only. Prices are stored as American odds;
+ * Pulls h2h/spreads/totals markets in ONE request per sport. Regions are
+ * chosen by the caller: "us,uk,eu" for the full global book view, "us" for
+ * cheap game-day boosts — see lib/refresh-policy.ts for the quota math
+ * (free tier: 500 credits/month). Prices are stored as American odds;
  * display conversion to Decimal / Fractional happens at render time via
  * the helpers below (used by the client-side odds-format toggle).
  *
@@ -10,7 +12,11 @@
  */
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import { TEAM_ABBR } from "@/lib/nflverse";
+import {
+  DEFAULT_SPORT,
+  SPORTS,
+  type SportKey,
+} from "@/lib/sports";
 import { resolveSeasonWeek } from "@/lib/model";
 
 // Re-exported so callers can use one import for odds helpers.
@@ -21,8 +27,7 @@ export {
   type OddsFormat,
 } from "@/lib/odds-format";
 
-const ODDS_URL =
-  "https://api.the-odds-api.com/v4/sports/americanfootball_nfl/odds/";
+const ODDS_URL_BASE = "https://api.the-odds-api.com/v4/sports/";
 
 interface OddsOutcome {
   name: string;
@@ -88,38 +93,48 @@ function homeMl(bm: Bookmaker, homeName: string): number | null {
 }
 
 /**
- * Refresh NFL odds for a season/week (defaults: current season, current week
- * as stored in the DB). Matches each Odds API event to a games-table row by
- * home/away abbreviations + same kickoff calendar date.
+ * Refresh odds for a sport's season/week (defaults: current season, current
+ * week as stored in the DB). Matches each Odds API event to a games-table
+ * row by home/away abbreviations + same kickoff calendar date.
+ *
+ * `regions` controls quota cost: "us" costs 3 credits per refresh
+ * (1 region × 3 markets); "us,uk,eu" costs 9. Callers (cron) decide via
+ * the quota policy in lib/refresh-policy.ts — never call this in a loop
+ * without going through the policy.
  *
  * Throws "ODDS_API_KEY not configured" when the key is missing.
  */
 export async function refreshOdds(
+  sport: SportKey = DEFAULT_SPORT,
   season?: number,
-  week?: number
+  week?: number,
+  regions = "us,uk,eu"
 ): Promise<{ events: number; upserted: number; snapshots: number }> {
   const apiKey = process.env.ODDS_API_KEY;
   if (!apiKey) throw new Error("ODDS_API_KEY not configured");
 
+  const cfg = SPORTS[sport];
   const admin = createAdminClient();
 
   // Resolve season/week from the DB when not given.
-  const resolved = await resolveSeasonWeek();
+  const resolved = await resolveSeasonWeek(sport);
   const s = season ?? resolved.season;
   const w = week ?? resolved.week;
 
   const { data: dbGames } = await admin
     .from("games")
     .select("id, home_team, away_team, kickoff")
+    .eq("sport", sport)
     .eq("season", s)
     .eq("week", w);
   const games: DbGame[] = (dbGames ?? []) as DbGame[];
   if (games.length === 0) return { events: 0, upserted: 0, snapshots: 0 };
 
-  const url = new URL(ODDS_URL);
+  const url = new URL(`${ODDS_URL_BASE}${cfg.oddsSportKey}/odds/`);
   url.searchParams.set("apiKey", apiKey);
-  // One request, global books: US + UK + EU regions.
-  url.searchParams.set("regions", "us,uk,eu");
+  // One request per sport. Global books on the daily cron; US-only on
+  // game-day boosts (see lib/refresh-policy.ts for the quota math).
+  url.searchParams.set("regions", regions);
   url.searchParams.set("markets", "h2h,spreads,totals");
   url.searchParams.set("oddsFormat", "american");
 
@@ -133,8 +148,8 @@ export async function refreshOdds(
   let snapshots = 0;
 
   for (const ev of events) {
-    const homeAbbr = TEAM_ABBR[ev.home_team];
-    const awayAbbr = TEAM_ABBR[ev.away_team];
+    const homeAbbr = cfg.teamAbbr[ev.home_team];
+    const awayAbbr = cfg.teamAbbr[ev.away_team];
     if (!homeAbbr || !awayAbbr) continue;
     const game = games.find(
       (g) =>

@@ -15,7 +15,7 @@ import { formatPrice } from "../lib/odds-format";
 import { refreshOdds } from "../lib/odds";
 
 async function main() {
-  const state = await computeModel();
+  const state = await computeModel("nfl");
   const top5 = Object.entries(state.ratings)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
@@ -58,7 +58,7 @@ async function main() {
   console.log("-110 ->", formatPrice(-110, "decimal"), "/", formatPrice(-110, "fractional"));
 
   try {
-    await refreshOdds(2026, 3);
+    await refreshOdds("nfl", 2026, 3);
     console.log("refreshOdds: unexpected success (key set?)");
   } catch (e) {
     console.log("refreshOdds no-key path:", (e as Error).message);

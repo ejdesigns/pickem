@@ -14,14 +14,74 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadSeason, currentSeason, type RawGame } from "@/lib/nflverse";
+import {
+  DEFAULT_SPORT,
+  SPORTS,
+  type SportKey,
+} from "@/lib/sports";
 
-const ELO_INIT = 1500;
-const ELO_K = 24;
-const ELO_HFA = 55; // home-field advantage in Elo points
-const ELO_PER_POINT = 25; // ~25 Elo ≈ 1 point of spread
+/** One decided game feeding the Elo ratings. */
+interface FinalGame {
+  homeTeam: string;
+  awayTeam: string;
+  homeScore: number;
+  awayScore: number;
+  /** Closing spread, home perspective (negative = home favored), if known. */
+  spreadLine: number | null;
+}
+
+/** NFL finals: nflverse schedules CSV, seasons 2020..current (unchanged). */
+async function loadNflFinals(): Promise<FinalGame[]> {
+  const out: FinalGame[] = [];
+  for (let s = 2020; s <= currentSeason(); s++) {
+    for (const g of await loadSeason(s)) {
+      const hs = g.home_score === "" ? null : Number(g.home_score);
+      const as = g.away_score === "" ? null : Number(g.away_score);
+      if (hs === null || as === null) continue;
+      out.push({
+        homeTeam: g.home_team,
+        awayTeam: g.away_team,
+        homeScore: hs,
+        awayScore: as,
+        spreadLine: g.spread_line === "" ? null : Number(g.spread_line),
+      });
+    }
+  }
+  return out;
+}
+
+/**
+ * NBA finals: read from our own games table, which the daily cron fills
+ * from balldontlie (plus the one-time backfill in scripts/backfill-nba.ts).
+ * The free balldontlie tier carries no closing lines, so spreadLine is
+ * always null for NBA and ATS reads "—".
+ */
+async function loadNbaFinals(): Promise<FinalGame[]> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("games")
+    .select("home_team, away_team, home_score, away_score, kickoff")
+    .eq("sport", "nba")
+    .eq("status", "final")
+    .order("kickoff", { ascending: true })
+    .limit(8000);
+  return ((data ?? []) as {
+    home_team: string;
+    away_team: string;
+    home_score: number;
+    away_score: number;
+  }[]).map((r) => ({
+    homeTeam: r.home_team,
+    awayTeam: r.away_team,
+    homeScore: r.home_score,
+    awayScore: r.away_score,
+    spreadLine: null,
+  }));
+}
 
 export interface DbGame {
   id: string;
+  sport: string;
   season: number;
   week: number;
   home_team: string;
@@ -46,79 +106,83 @@ interface ModelState {
   ratings: Record<string, number>;
   finals: Record<string, TeamFinal[]>; // chronological, per team
   leagueAvgTotal: number;
+  hfa: number; // home advantage in Elo points (per sport)
+  perPoint: number; // ~Elo points per 1 point of fair spread (per sport)
 }
 
-function expectedHome(homeElo: number, awayElo: number): number {
-  return 1 / (1 + Math.pow(10, -((homeElo - awayElo + ELO_HFA) / 400)));
+function expectedHome(homeElo: number, awayElo: number, hfa: number): number {
+  return 1 / (1 + Math.pow(10, -((homeElo - awayElo + hfa) / 400)));
 }
 
-/** Run Elo over all finals from 2020..current season. Cached per process. */
-let modelCache: { state: ModelState; at: number } | null = null;
+/** Run Elo over a sport's finals. Cached per sport per process. */
+const modelCache = new Map<SportKey, { state: ModelState; at: number }>();
 const MODEL_TTL_MS = 6 * 60 * 60 * 1000;
 
-export async function computeModel(): Promise<ModelState> {
-  if (modelCache && Date.now() - modelCache.at < MODEL_TTL_MS) {
-    return modelCache.state;
+export async function computeModel(
+  sport: SportKey = DEFAULT_SPORT
+): Promise<ModelState> {
+  const cached = modelCache.get(sport);
+  if (cached && Date.now() - cached.at < MODEL_TTL_MS) {
+    return cached.state;
   }
+  const cfg = SPORTS[sport];
+  const { k, init, hfa, perPoint } = cfg.elo;
   const ratings: Record<string, number> = {};
   const finals: Record<string, TeamFinal[]> = {};
-  const eloOf = (t: string) => ratings[t] ?? ELO_INIT;
+  const eloOf = (t: string) => ratings[t] ?? init;
 
   let totalSum = 0;
   let totalN = 0;
 
-  const seasons: number[] = [];
-  for (let s = 2020; s <= currentSeason(); s++) seasons.push(s);
+  const games = sport === "nba" ? await loadNbaFinals() : await loadNflFinals();
+  for (const g of games) {
+    const hs = g.homeScore;
+    const as = g.awayScore;
 
-  for (const season of seasons) {
-    const games = await loadSeason(season);
-    for (const g of games) {
-      const hs = g.home_score === "" ? null : Number(g.home_score);
-      const as = g.away_score === "" ? null : Number(g.away_score);
-      if (hs === null || as === null) continue; // only finals move ratings
+    const exp = expectedHome(eloOf(g.homeTeam), eloOf(g.awayTeam), hfa);
+    const actual = hs > as ? 1 : hs < as ? 0 : 0.5;
+    const delta = k * (actual - exp);
+    ratings[g.homeTeam] = eloOf(g.homeTeam) + delta;
+    ratings[g.awayTeam] = eloOf(g.awayTeam) - delta;
 
-      const exp = expectedHome(eloOf(g.home_team), eloOf(g.away_team));
-      const actual = hs > as ? 1 : hs < as ? 0 : 0.5;
-      const delta = ELO_K * (actual - exp);
-      ratings[g.home_team] = eloOf(g.home_team) + delta;
-      ratings[g.away_team] = eloOf(g.away_team) - delta;
+    totalSum += hs + as;
+    totalN++;
 
-      totalSum += hs + as;
-      totalN++;
-
-      // Spread cover (nflverse: negative spread_line = home favored).
-      const line = g.spread_line === "" ? null : Number(g.spread_line);
-      let homeAts: boolean | null = null;
-      if (line !== null) {
-        const margin = hs + line - as;
-        homeAts = margin > 0 ? true : margin < 0 ? false : null;
-      }
-
-      const homeFinal: TeamFinal = {
-        pf: hs,
-        pa: as,
-        won: hs > as,
-        pushed: hs === as,
-        atsWin: homeAts,
-      };
-      const awayFinal: TeamFinal = {
-        pf: as,
-        pa: hs,
-        won: as > hs,
-        pushed: hs === as,
-        atsWin: homeAts === null ? null : !homeAts,
-      };
-      (finals[g.home_team] ??= []).push(homeFinal);
-      (finals[g.away_team] ??= []).push(awayFinal);
+    // Spread cover (home perspective: negative line = home favored).
+    // Null when the line is unknown (all NBA games on the free tier).
+    const line = g.spreadLine;
+    let homeAts: boolean | null = null;
+    if (line !== null) {
+      const margin = hs + line - as;
+      homeAts = margin > 0 ? true : margin < 0 ? false : null;
     }
+
+    const homeFinal: TeamFinal = {
+      pf: hs,
+      pa: as,
+      won: hs > as,
+      pushed: hs === as,
+      atsWin: homeAts,
+    };
+    const awayFinal: TeamFinal = {
+      pf: as,
+      pa: hs,
+      won: as > hs,
+      pushed: hs === as,
+      atsWin: homeAts === null ? null : !homeAts,
+    };
+    (finals[g.homeTeam] ??= []).push(homeFinal);
+    (finals[g.awayTeam] ??= []).push(awayFinal);
   }
 
   const state: ModelState = {
     ratings,
     finals,
-    leagueAvgTotal: totalN > 0 ? totalSum / totalN : 44,
+    leagueAvgTotal: totalN > 0 ? totalSum / totalN : cfg.typicalTotal,
+    hfa,
+    perPoint,
   };
-  modelCache = { state, at: Date.now() };
+  modelCache.set(sport, { state, at: Date.now() });
   return state;
 }
 
@@ -127,14 +191,14 @@ export function homeWinProb(
   home: string,
   away: string
 ): number {
-  return expectedHome(state.ratings[home] ?? ELO_INIT, state.ratings[away] ?? ELO_INIT);
+  return expectedHome(state.ratings[home] ?? 1500, state.ratings[away] ?? 1500, state.hfa);
 }
 
 /** Home-perspective fair spread; negative = home favored. */
 export function fairSpread(state: ModelState, home: string, away: string): number {
   const diff =
-    (state.ratings[home] ?? ELO_INIT) - (state.ratings[away] ?? ELO_INIT) + ELO_HFA;
-  return -(diff / ELO_PER_POINT);
+    (state.ratings[home] ?? 1500) - (state.ratings[away] ?? 1500) + state.hfa;
+  return -(diff / state.perPoint);
 }
 
 function avgTotal(state: ModelState, team: string, n: number): number | null {
@@ -177,7 +241,7 @@ export function teamTrends(state: ModelState, team: string): TeamTrends {
   const atsGames = f.slice(-10).filter((x) => x.atsWin !== null);
   const atsW = atsGames.filter((x) => x.atsWin).length;
   const ats = atsGames.length > 0 ? `${atsW}-${atsGames.length - atsW}` : "—";
-  return { form, pfAvg, paAvg, ats, elo: state.ratings[team] ?? ELO_INIT };
+  return { form, pfAvg, paAvg, ats, elo: state.ratings[team] ?? 1500 };
 }
 
 // ---------------------------------------------------------------------------
@@ -360,8 +424,9 @@ export async function getGameAnalysis(gameId: string): Promise<GameAnalysis> {
     .single();
   if (error || !game) throw new Error(`Game not found: ${gameId}`);
   const g = game as DbGame;
+  const sport = (g.sport === "nba" ? "nba" : "nfl") as SportKey;
 
-  const state = await computeModel();
+  const state = await computeModel(sport);
   const prob = homeWinProb(state, g.home_team, g.away_team);
   const fs = fairSpread(state, g.home_team, g.away_team);
   const ft = fairTotal(state, g.home_team, g.away_team);
@@ -416,11 +481,14 @@ export async function getGameAnalysis(gameId: string): Promise<GameAnalysis> {
 }
 
 /** Resolve the current season/week from the DB (latest week with a future game). */
-export async function resolveSeasonWeek(): Promise<{ season: number; week: number }> {
+export async function resolveSeasonWeek(
+  sport: SportKey = DEFAULT_SPORT
+): Promise<{ season: number; week: number }> {
   const admin = createAdminClient();
   const { data: latest } = await admin
     .from("games")
     .select("season")
+    .eq("sport", sport)
     .order("kickoff", { ascending: false })
     .limit(1)
     .single();
@@ -428,6 +496,7 @@ export async function resolveSeasonWeek(): Promise<{ season: number; week: numbe
   const { data: weeks } = await admin
     .from("games")
     .select("week, kickoff")
+    .eq("sport", sport)
     .eq("season", season)
     .order("week", { ascending: true });
   const now = new Date().toISOString();
@@ -438,17 +507,21 @@ export async function resolveSeasonWeek(): Promise<{ season: number; week: numbe
 }
 
 /** Every game of a week with analysis, sorted by |model-vs-market gap| desc. */
-export async function getWeekRundown(week?: number): Promise<{
+export async function getWeekRundown(
+  sport: SportKey = DEFAULT_SPORT,
+  week?: number
+): Promise<{
   season: number;
   week: number;
   games: GameAnalysis[];
 }> {
   const admin = createAdminClient();
-  const { season, week: cur } = await resolveSeasonWeek();
+  const { season, week: cur } = await resolveSeasonWeek(sport);
   const w = week ?? cur;
   const { data } = await admin
     .from("games")
     .select("id")
+    .eq("sport", sport)
     .eq("season", season)
     .eq("week", w)
     .order("kickoff", { ascending: true });
@@ -467,6 +540,7 @@ export async function getWeekRundown(week?: number): Promise<{
  * (ignore conflicts) so the pre-game numbers stay frozen for calibration.
  */
 export async function ensurePredictions(
+  sport: SportKey,
   season: number,
   week: number
 ): Promise<{ upserted: number }> {
@@ -474,9 +548,10 @@ export async function ensurePredictions(
   const { data } = await admin
     .from("games")
     .select("id")
+    .eq("sport", sport)
     .eq("season", season)
     .eq("week", week);
-  const state = await computeModel();
+  const state = await computeModel(sport);
   const rows = ((data ?? []) as { id: string }[]).map((r) => r.id);
   let upserted = 0;
   for (const id of rows) {

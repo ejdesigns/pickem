@@ -16,7 +16,7 @@ export default function Home() {
         We do numbers.
       </h1>
       <p className="mt-4 text-slate-400">
-        Every NFL game, every day: the model&apos;s fair line and win
+        Every NFL and NBA game, every day: the model&apos;s fair line and win
         probability next to the market&apos;s odds from books around the
         world. Where the numbers disagree with the books, you&apos;ll see it.
         What you do with that is up to you — we don&apos;t sell picks.

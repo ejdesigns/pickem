@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getWeekRundown, type GameAnalysis } from "@/lib/model";
+import { parseSport, SPORTS, type SportKey } from "@/lib/sports";
 import {
   OddsFormatProvider,
   OddsFormatToggle,
@@ -12,7 +13,7 @@ export const dynamic = "force-dynamic";
 export const metadata = {
   title: "Today's Numbers — The Morning Line",
   description:
-    "Every NFL game, the model's numbers vs the market. Information only — never picks.",
+    "Every game, the model's numbers vs the market. Information only — never picks.",
 };
 
 function fmtSpread(x: number | null): string {
@@ -111,10 +112,35 @@ function GameCard({ a }: { a: GameAnalysis }) {
   );
 }
 
-export default async function RundownPage() {
+function SportToggle({ sport }: { sport: SportKey }) {
+  return (
+    <div className="flex gap-2">
+      {(["nfl", "nba"] as SportKey[]).map((s) => (
+        <Link
+          key={s}
+          href={`/rundown?sport=${s}`}
+          className={`rounded-full px-4 py-1.5 text-sm font-bold ${
+            sport === s
+              ? "bg-emerald-500 text-slate-950"
+              : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+          }`}
+        >
+          {SPORTS[s].name}
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+export default async function RundownPage({
+  searchParams,
+}: {
+  searchParams: { sport?: string };
+}) {
+  const sport = parseSport(searchParams.sport);
   let rundown;
   try {
-    rundown = await getWeekRundown();
+    rundown = await getWeekRundown(sport);
   } catch {
     rundown = null;
   }
@@ -130,12 +156,16 @@ export default async function RundownPage() {
             <h1 className="mt-1 text-3xl font-extrabold">Today&apos;s Numbers</h1>
             {rundown && (
               <p className="mt-1 text-sm text-slate-400">
-                NFL Week {rundown.week} · {rundown.season} · sorted by
+                {SPORTS[sport].name} Week {rundown.week} ·{" "}
+                {SPORTS[sport].seasonLabel(rundown.season)} · sorted by
                 model-vs-market gap
               </p>
             )}
           </div>
-          <OddsFormatToggle />
+          <div className="flex items-center gap-3">
+            <SportToggle sport={sport} />
+            <OddsFormatToggle />
+          </div>
         </div>
 
         <p className="mt-3 text-sm text-slate-400">

@@ -13,6 +13,11 @@
 
 export type GameStatus = "scheduled" | "in_progress" | "final";
 
+import {
+  resolveCurrentWeek,
+  type ProviderGame,
+} from "@/lib/sports";
+
 export interface GameRow {
   id: string;
   season: number;
@@ -199,17 +204,73 @@ export async function loadSeason(season: number): Promise<RawGame[]> {
   return out;
 }
 
-/** First week that still has an unscored game (i.e. the current/upcoming week). */
-function resolveCurrentWeek(games: RawGame[]): number {
-  const weeks = Array.from(new Set(games.map((g) => g.week))).sort((a, b) => a - b);
-  for (const w of weeks) {
-    const wg = games.filter((g) => g.week === w);
-    if (wg.some((g) => g.home_score === "" || g.away_score === "")) return w;
-  }
-  return weeks[weeks.length - 1] ?? 1;
+/** Adapter: nflverse RawGame -> sport-agnostic ProviderGame. */
+export function toProviderGame(g: RawGame): ProviderGame {
+  const row = rawToGameRow(g);
+  return {
+    id: row.id,
+    season: row.season,
+    week: row.week,
+    homeTeam: row.home_team,
+    awayTeam: row.away_team,
+    homeTeamName: row.home_team_name,
+    awayTeamName: row.away_team_name,
+    kickoff: row.kickoff,
+    homeScore: row.home_score,
+    awayScore: row.away_score,
+    status: row.status,
+    // nflverse convention: negative spread_line = home favored.
+    spreadLine: g.spread_line === "" ? null : Number(g.spread_line),
+  };
 }
 
-function toGameRow(g: RawGame): GameRow {
+/**
+ * Fetch a week's NFL schedule/scores as sport-agnostic ProviderGames.
+ * Omit `week` to get the current week. `season` defaults to the current season.
+ */
+export async function fetchNflProviderWeek(
+  week?: number,
+  season?: number
+): Promise<{ games: ProviderGame[]; season: number; week: number }> {
+  const s = season ?? currentSeason();
+  const all = (await loadSeason(s)).map(toProviderGame);
+  const resolvedWeek = week ?? resolveCurrentWeek(all);
+  return {
+    games: all.filter((g) => g.week === resolvedWeek),
+    season: s,
+    week: resolvedWeek,
+  };
+}
+
+function toGameRow(p: ProviderGame): GameRow {
+  return {
+    id: p.id,
+    season: p.season,
+    week: p.week,
+    home_team: p.homeTeam,
+    home_team_name: p.homeTeamName,
+    away_team: p.awayTeam,
+    away_team_name: p.awayTeamName,
+    kickoff: p.kickoff,
+    home_score: p.homeScore,
+    away_score: p.awayScore,
+    status: p.status,
+  };
+}
+
+/**
+ * Fetch a week's NFL schedule/scores from nflverse (legacy GameRow shape).
+ * Omit `week` to get the current week. `season` defaults to the current season.
+ */
+export async function fetchNflverseWeek(
+  week?: number,
+  season?: number
+): Promise<{ games: GameRow[]; season: number; week: number }> {
+  const { games, season: s, week: w } = await fetchNflProviderWeek(week, season);
+  return { games: games.map(toGameRow), season: s, week: w };
+}
+
+function rawToGameRow(g: RawGame): GameRow {
   const toScore = (s: string) => (s === "" ? null : Number(s));
   const homeScore = toScore(g.home_score);
   const awayScore = toScore(g.away_score);
@@ -234,20 +295,3 @@ function toGameRow(g: RawGame): GameRow {
   };
 }
 
-/**
- * Fetch a week's NFL schedule/scores from nflverse.
- * Omit `week` to get the current week. `season` defaults to the current season.
- */
-export async function fetchNflverseWeek(
-  week?: number,
-  season?: number
-): Promise<{ games: GameRow[]; season: number; week: number }> {
-  const s = season ?? currentSeason();
-  const games = await loadSeason(s);
-  const resolvedWeek = week ?? resolveCurrentWeek(games);
-  return {
-    games: games.filter((g) => g.week === resolvedWeek).map(toGameRow),
-    season: s,
-    week: resolvedWeek,
-  };
-}
