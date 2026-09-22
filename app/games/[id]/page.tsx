@@ -7,6 +7,7 @@ import {
   OddsPrice,
 } from "@/app/components/odds-format";
 import { LocalKickoff } from "@/app/components/local-kickoff";
+import { NbaExtras } from "./nba-extras";
 
 export const dynamic = "force-dynamic";
 
@@ -334,6 +335,15 @@ export default async function GameHubPage({
             />
           </div>
         </Section>
+
+        {g.sport === "nba" && (
+          <NbaExtras
+            gameId={g.id}
+            homeAbbr={g.home_team}
+            awayAbbr={g.away_team}
+            kickoff={g.kickoff}
+          />
+        )}
 
         <Section title="Model vs market">
           <p className="text-sm leading-relaxed text-slate-200">

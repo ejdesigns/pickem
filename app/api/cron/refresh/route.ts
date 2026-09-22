@@ -5,6 +5,8 @@ import {
   planBoostOddsRefresh,
   markBoostDone,
 } from "@/lib/refresh-policy";
+import { ingestRecentPlayerStats } from "@/lib/player-ingest";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { SPORT_KEYS } from "@/lib/sports";
 
 /**
@@ -83,7 +85,22 @@ export async function GET(request: Request) {
       }
     }
 
-    return NextResponse.json({ ok: true, ingest, odds });
+    // Player box scores for recently-final NBA games (ESPN, free, no quota).
+    // Never breaks the run if ESPN hiccups.
+    let playerStats: unknown = null;
+    try {
+      const admin = createAdminClient();
+      playerStats = await ingestRecentPlayerStats(admin as never, {
+        daysBack: 4,
+        limit: 12,
+      });
+    } catch (e) {
+      playerStats = {
+        error: e instanceof Error ? e.message : "Player stats ingest failed.",
+      };
+    }
+
+    return NextResponse.json({ ok: true, ingest, odds, playerStats });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Refresh run failed.";
     return NextResponse.json({ error: message }, { status: 500 });

@@ -168,6 +168,17 @@ export default async function RundownPage({
           </div>
         </div>
 
+        {sport === "nba" && (
+          <div className="mt-3">
+            <Link
+              href="/players"
+              className="inline-block rounded-full bg-slate-800 px-4 py-1.5 text-sm font-bold text-emerald-400 hover:bg-slate-700"
+            >
+              Find a player →
+            </Link>
+          </div>
+        )}
+
         <p className="mt-3 text-sm text-slate-400">
           The model&apos;s numbers next to the market&apos;s numbers. Where they
           disagree, you&apos;ll see it — what you do with that is up to you.
