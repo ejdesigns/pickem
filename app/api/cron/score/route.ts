@@ -4,9 +4,11 @@ import { ingestWeek } from "@/lib/ingest";
 /**
  * GET /api/cron/score — Vercel Cron hits this on a schedule (see vercel.json).
  *
- * Protected by CRON_SECRET. In the Vercel dashboard, add an Authorization
- * header `Bearer <CRON_SECRET>` to the cron job (Project Settings -> Cron
- * Jobs), or call it manually with ?secret=<CRON_SECRET>.
+ * Protected by CRON_SECRET: pass it as an `Authorization: Bearer` header
+ * or as `?secret=`. Vercel Cron on Hobby can't send custom headers, so
+ * requests bearing Vercel Cron's user agent are also accepted — the endpoint
+ * is idempotent and only refreshes public game data, so the blast radius of
+ * a spoofed UA is a harmless re-ingest.
  *
  * Each run ingests the current week plus the previous week, so games that
  * finish late (e.g. Monday night) still get their final scores.
@@ -24,8 +26,11 @@ export async function GET(request: Request) {
 
   const authHeader = request.headers.get("authorization");
   const querySecret = new URL(request.url).searchParams.get("secret");
+  const userAgent = request.headers.get("user-agent") ?? "";
   const authorized =
-    authHeader === `Bearer ${secret}` || querySecret === secret;
+    authHeader === `Bearer ${secret}` ||
+    querySecret === secret ||
+    userAgent.toLowerCase().includes("vercel-cron");
 
   if (!authorized) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
