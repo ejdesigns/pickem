@@ -8,6 +8,7 @@ import {
   type PropStat,
 } from "@/lib/player-props";
 import { LineGrader } from "../line-grader";
+import { NflPlayerPage } from "./nfl-player";
 
 export const dynamic = "force-dynamic";
 
@@ -53,9 +54,17 @@ function fmtDate(iso: string) {
 
 export default async function PlayerPage({
   params,
+  searchParams,
 }: {
   params: { id: string };
+  searchParams: { sport?: string };
 }) {
+  // NFL profiles live in nfl-player.tsx; default stays NBA so existing links
+  // keep working.
+  if (searchParams.sport === "nfl") {
+    return <NflPlayerPage id={params.id} />;
+  }
+
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("player_game_stats")

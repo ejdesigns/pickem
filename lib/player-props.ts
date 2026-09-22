@@ -14,7 +14,16 @@ export type PropStat =
   | "blocks"
   | "turnovers"
   | "pra" // points + rebounds + assists
-  | "minutes";
+  | "minutes"
+  // NFL
+  | "pass_yds"
+  | "pass_td"
+  | "rush_yds"
+  | "receptions"
+  | "rec_yds"
+  | "rush_rec_yds" // rushing + receiving yards
+  | "tackles"
+  | "fg_made";
 
 export const PROP_STATS: { key: PropStat; label: string; short: string }[] = [
   { key: "points", label: "Points", short: "PTS" },
@@ -25,6 +34,18 @@ export const PROP_STATS: { key: PropStat; label: string; short: string }[] = [
   { key: "blocks", label: "Blocks", short: "BLK" },
   { key: "turnovers", label: "Turnovers", short: "TOV" },
   { key: "minutes", label: "Minutes", short: "MIN" },
+];
+
+/** NFL stat options (used by NFL profiles + line grader). */
+export const NFL_PROP_STATS: { key: PropStat; label: string; short: string }[] = [
+  { key: "pass_yds", label: "Pass yards", short: "PYDS" },
+  { key: "pass_td", label: "Pass TDs", short: "PTD" },
+  { key: "rush_yds", label: "Rush yards", short: "RYDS" },
+  { key: "receptions", label: "Receptions", short: "REC" },
+  { key: "rec_yds", label: "Receiving yards", short: "RECYDS" },
+  { key: "rush_rec_yds", label: "Rush+Rec yards", short: "RRYDS" },
+  { key: "tackles", label: "Tackles", short: "TKL" },
+  { key: "fg_made", label: "Field goals", short: "FG" },
 ];
 
 /** One row of a player's game log (oldest -> newest order expected). */
@@ -40,6 +61,23 @@ export interface PlayerGame {
   steals: number | null;
   blocks: number | null;
   turnovers: number | null;
+  // NFL (optional; null/absent on NBA rows)
+  played?: boolean; // true when the player took part (NFL has no minutes)
+  passYds?: number | null;
+  passAtt?: number | null;
+  passTd?: number | null;
+  rushYds?: number | null;
+  rushAtt?: number | null;
+  receptions?: number | null;
+  targets?: number | null;
+  recYds?: number | null;
+  tackles?: number | null;
+  fgMade?: number | null;
+}
+
+/** True when the player actually took part in the game. */
+function wasActive(g: PlayerGame): boolean {
+  return (g.minutes ?? 0) > 0 || g.played === true;
 }
 
 export function statValue(g: PlayerGame, stat: PropStat): number | null {
@@ -62,6 +100,24 @@ export function statValue(g: PlayerGame, stat: PropStat): number | null {
       return g.points !== null && g.rebounds !== null && g.assists !== null
         ? g.points + g.rebounds + g.assists
         : null;
+    case "pass_yds":
+      return g.passYds ?? null;
+    case "pass_td":
+      return g.passTd ?? null;
+    case "rush_yds":
+      return g.rushYds ?? null;
+    case "receptions":
+      return g.receptions ?? null;
+    case "rec_yds":
+      return g.recYds ?? null;
+    case "rush_rec_yds":
+      return g.rushYds != null || g.recYds != null
+        ? (g.rushYds ?? 0) + (g.recYds ?? 0)
+        : null;
+    case "tackles":
+      return g.tackles ?? null;
+    case "fg_made":
+      return g.fgMade ?? null;
   }
 }
 
@@ -82,7 +138,7 @@ export function projectStat(
   n = 10
 ): Projection {
   const played = log.filter(
-    (g) => (g.minutes ?? 0) > 0 && statValue(g, stat) !== null
+    (g) => wasActive(g) && statValue(g, stat) !== null
   );
   const seasonAvg =
     played.length > 0
@@ -140,7 +196,7 @@ export function hitRate(
   n = 20
 ): HitRate {
   const played = log
-    .filter((g) => (g.minutes ?? 0) > 0 && statValue(g, stat) !== null)
+    .filter((g) => wasActive(g) && statValue(g, stat) !== null)
     .slice(-n)
     .reverse(); // most recent first
   const games: HitGame[] = played.map((g) => {

@@ -13,9 +13,22 @@ import {
  * Line grader — the user types the line they see at their book; we show our
  * projection next to it plus the player's game-by-game record at that number.
  * Informational only: never says what to do with the comparison.
+ *
+ * `statOptions` lets NFL profiles offer NFL stat types (defaults to the NBA
+ * list so existing usage is unchanged).
  */
-export function LineGrader({ log }: { log: PlayerGame[] }) {
-  const [stat, setStat] = useState<PropStat>("points");
+export function LineGrader({
+  log,
+  statOptions = PROP_STATS,
+  defaultStat,
+}: {
+  log: PlayerGame[];
+  statOptions?: { key: PropStat; label: string; short: string }[];
+  defaultStat?: PropStat;
+}) {
+  const [stat, setStat] = useState<PropStat>(
+    defaultStat ?? statOptions[0]?.key ?? "points"
+  );
   const [line, setLine] = useState("");
 
   const proj = useMemo(() => projectStat(log, stat), [log, stat]);
@@ -28,7 +41,7 @@ export function LineGrader({ log }: { log: PlayerGame[] }) {
     [log, stat, lineNum]
   );
 
-  const label = PROP_STATS.find((s) => s.key === stat)?.label ?? stat;
+  const label = statOptions.find((s) => s.key === stat)?.label ?? stat;
   const edge =
     hr !== null && proj.projection !== null
       ? Math.round((proj.projection - hr.line) * 10) / 10
@@ -50,7 +63,7 @@ export function LineGrader({ log }: { log: PlayerGame[] }) {
           onChange={(e) => setStat(e.target.value as PropStat)}
           className="rounded-lg bg-slate-950 px-3 py-2 text-sm font-semibold text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
         >
-          {PROP_STATS.map((s) => (
+          {statOptions.map((s) => (
             <option key={s.key} value={s.key}>
               {s.label}
             </option>

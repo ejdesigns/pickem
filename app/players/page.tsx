@@ -5,8 +5,11 @@ export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Find a player — The Morning Line",
-  description: "Search NBA players for game logs, projections, and line grades.",
+  description:
+    "Search NFL and NBA players for game logs, projections, and line grades.",
 };
+
+type Sport = "nfl" | "nba";
 
 interface PlayerHit {
   id: string;
@@ -15,12 +18,13 @@ interface PlayerHit {
   games: number;
 }
 
-async function searchPlayers(q: string): Promise<PlayerHit[]> {
+async function searchPlayers(q: string, sport: Sport): Promise<PlayerHit[]> {
   if (q.trim().length < 2) return [];
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("player_game_stats")
     .select("player_id, player_name, team_abbr, kickoff:games!inner(kickoff)")
+    .eq("games.sport", sport)
     .ilike("player_name", `%${q.trim()}%`)
     .limit(300);
   if (error || !data) return [];
@@ -49,29 +53,53 @@ async function searchPlayers(q: string): Promise<PlayerHit[]> {
     .map(({ last, ...rest }) => rest);
 }
 
+const SPORTS: { key: Sport; label: string }[] = [
+  { key: "nba", label: "NBA" },
+  { key: "nfl", label: "NFL" },
+];
+
 export default async function PlayersPage({
   searchParams,
 }: {
-  searchParams: { q?: string };
+  searchParams: { q?: string; sport?: string };
 }) {
   const q = searchParams.q ?? "";
-  const hits = await searchPlayers(q);
+  const sport: Sport = searchParams.sport === "nfl" ? "nfl" : "nba";
+  const hits = await searchPlayers(q, sport);
+  const league = sport === "nfl" ? "NFL" : "NBA";
 
   return (
     <main className="py-8">
-      <Link href="/rundown?sport=nba" className="text-sm text-emerald-400">
-        ← NBA numbers
+      <Link href={`/rundown?sport=${sport}`} className="text-sm text-emerald-400">
+        ← {league} numbers
       </Link>
       <h1 className="mt-3 text-3xl font-extrabold">Find a player</h1>
       <p className="mt-1 text-sm text-slate-400">
         Game logs, model projections, and hit rates — information only.
       </p>
 
+      <div className="mt-4 flex gap-2">
+        {SPORTS.map((s) => (
+          <Link
+            key={s.key}
+            href={`/players?sport=${s.key}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
+            className={`rounded-full px-4 py-1.5 text-sm font-bold ${
+              s.key === sport
+                ? "bg-emerald-500 text-slate-950"
+                : "bg-slate-900 text-slate-300 hover:bg-slate-800"
+            }`}
+          >
+            {s.label}
+          </Link>
+        ))}
+      </div>
+
       <form method="GET" className="mt-4 flex gap-2">
+        <input type="hidden" name="sport" value={sport} />
         <input
           name="q"
           defaultValue={q}
-          placeholder="e.g. LeBron James"
+          placeholder={sport === "nfl" ? "e.g. Patrick Mahomes" : "e.g. LeBron James"}
           autoComplete="off"
           className="w-full max-w-md rounded-lg bg-slate-900 px-4 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
         />
@@ -87,15 +115,15 @@ export default async function PlayersPage({
         <div className="mt-6">
           {hits.length === 0 ? (
             <p className="text-sm text-slate-400">
-              No players found for “{q}”. Player stats load as games complete —
-              check back after the next slate.
+              No {league} players found for “{q}”. Player stats load as games
+              complete — check back after the next slate.
             </p>
           ) : (
             <div className="space-y-2">
               {hits.map((p) => (
                 <Link
                   key={p.id}
-                  href={`/players/${p.id}`}
+                  href={`/players/${p.id}?sport=${sport}`}
                   className="block rounded-xl bg-slate-900 p-4 transition hover:bg-slate-800"
                 >
                   <div className="flex items-center justify-between">
