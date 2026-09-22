@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireUser, requireMember, asResponse } from "@/lib/api-auth";
+import { requireUser, requireMember } from "@/lib/api-auth";
 import { computeStandings } from "@/lib/pickem";
 
 /**
@@ -25,11 +25,14 @@ export async function GET(
       );
     }
 
-    const [membersRes, gamesRes, picksRes] = await Promise.all([
+    const [membersRes, profilesRes, gamesRes, picksRes] = await Promise.all([
       supabase
         .from("group_members")
-        .select("user_id, profiles ( display_name )")
+        .select("user_id")
         .eq("group_id", groupId),
+      // NOTE: group_members.user_id references auth.users, not profiles,
+      // so PostgREST can't embed profiles here — fetch them separately.
+      supabase.from("profiles").select("id, display_name"),
       (() => {
         const q = supabase.from("games").select("*").order("kickoff", { ascending: true });
         return week ? q.eq("week", week) : q;
@@ -37,20 +40,27 @@ export async function GET(
       supabase.from("picks").select("game_id, user_id, picked_team").eq("group_id", groupId),
     ]);
     if (membersRes.error) throw membersRes.error;
+    if (profilesRes.error) throw profilesRes.error;
     if (gamesRes.error) throw gamesRes.error;
     if (picksRes.error) throw picksRes.error;
 
+    const names = new Map(
+      (profilesRes.data ?? []).map((p) => [p.id as string, p.display_name as string | null])
+    );
     const members = (membersRes.data ?? []).map((m) => ({
       user_id: m.user_id,
-      display_name:
-        (m.profiles as unknown as { display_name: string | null } | null)
-          ?.display_name ?? "Player",
+      display_name: names.get(m.user_id) ?? "Player",
     }));
 
     const standings = computeStandings(members, gamesRes.data ?? [], picksRes.data ?? []);
 
     return NextResponse.json({ week, standings });
   } catch (e) {
-    return asResponse(e);
+    if (e instanceof NextResponse) return e;
+    console.error("leaderboard error", e);
+    return NextResponse.json(
+      { error: "Could not load standings." },
+      { status: 500 }
+    );
   }
 }
