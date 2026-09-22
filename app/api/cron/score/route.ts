@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { ingestWeek } from "@/lib/ingest";
+import { refreshOdds } from "@/lib/odds";
+import { ensurePredictions } from "@/lib/model";
 
 /**
  * GET /api/cron/score — Vercel Cron hits this on a schedule (see vercel.json).
@@ -46,7 +48,24 @@ export async function GET(request: Request) {
       results.push(await ingestWeek(current.week - 1));
     }
 
-    return NextResponse.json({ ok: true, results });
+    // Refresh market odds + snapshot this week's model numbers.
+    // Odds failures must never break scoring.
+    let odds: unknown = null;
+    try {
+      odds = await refreshOdds(current.season, current.week);
+    } catch (e) {
+      odds = { error: e instanceof Error ? e.message : "Odds refresh failed." };
+    }
+    let predictions: unknown = null;
+    try {
+      predictions = await ensurePredictions(current.season, current.week);
+    } catch (e) {
+      predictions = {
+        error: e instanceof Error ? e.message : "Prediction snapshot failed.",
+      };
+    }
+
+    return NextResponse.json({ ok: true, results, odds, predictions });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Cron run failed.";
     return NextResponse.json({ error: message }, { status: 500 });

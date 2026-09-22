@@ -24,6 +24,10 @@ points · no push notifications · mobile-friendly web (no native apps).
 - **Supabase** — Postgres database + email auth (Row Level Security on)
 - **nflverse schedules** — free, no-key CSV for schedules/scores
   (`https://github.com/nflverse/nflverse-data` schedules release)
+- **The Odds API** — live odds from US/UK/EU books (free tier key in
+  `ODDS_API_KEY`); prices stored American, rendered in American/Decimal/Fractional
+- **Stats engine** (`lib/model.ts`) — Elo power ratings (2020→now) → win
+  probability, fair spread, fair total; model-vs-market gaps, never picks
 - **Vercel Cron** — hits `/api/cron/score` daily
 
 ---

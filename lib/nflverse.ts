@@ -30,40 +30,45 @@ export interface GameRow {
 const SCHEDULES_URL =
   "https://github.com/nflverse/nflverse-data/releases/download/schedules/games.csv";
 
-const TEAM_NAMES: Record<string, string> = {
-  ARI: "Arizona Cardinals",
-  ATL: "Atlanta Falcons",
-  BAL: "Baltimore Ravens",
-  BUF: "Buffalo Bills",
-  CAR: "Carolina Panthers",
-  CHI: "Chicago Bears",
-  CIN: "Cincinnati Bengals",
-  CLE: "Cleveland Browns",
-  DAL: "Dallas Cowboys",
-  DEN: "Denver Broncos",
-  DET: "Detroit Lions",
-  GB: "Green Bay Packers",
-  HOU: "Houston Texans",
-  IND: "Indianapolis Colts",
-  JAX: "Jacksonville Jaguars",
-  KC: "Kansas City Chiefs",
-  LV: "Las Vegas Raiders",
-  LAC: "Los Angeles Chargers",
-  LA: "Los Angeles Rams",
-  MIA: "Miami Dolphins",
-  MIN: "Minnesota Vikings",
-  NE: "New England Patriots",
-  NO: "New Orleans Saints",
-  NYG: "New York Giants",
-  NYJ: "New York Jets",
-  PHI: "Philadelphia Eagles",
-  PIT: "Pittsburgh Steelers",
-  SF: "San Francisco 49ers",
-  SEA: "Seattle Seahawks",
-  TB: "Tampa Bay Buccaneers",
-  TEN: "Tennessee Titans",
-  WAS: "Washington Commanders",
+/** Full team name -> abbreviation, e.g. "Green Bay Packers" -> "GB". */
+export const TEAM_ABBR: Record<string, string> = {
+  "Arizona Cardinals": "ARI",
+  "Atlanta Falcons": "ATL",
+  "Baltimore Ravens": "BAL",
+  "Buffalo Bills": "BUF",
+  "Carolina Panthers": "CAR",
+  "Chicago Bears": "CHI",
+  "Cincinnati Bengals": "CIN",
+  "Cleveland Browns": "CLE",
+  "Dallas Cowboys": "DAL",
+  "Denver Broncos": "DEN",
+  "Detroit Lions": "DET",
+  "Green Bay Packers": "GB",
+  "Houston Texans": "HOU",
+  "Indianapolis Colts": "IND",
+  "Jacksonville Jaguars": "JAX",
+  "Kansas City Chiefs": "KC",
+  "Las Vegas Raiders": "LV",
+  "Los Angeles Chargers": "LAC",
+  "Los Angeles Rams": "LA",
+  "Miami Dolphins": "MIA",
+  "Minnesota Vikings": "MIN",
+  "New England Patriots": "NE",
+  "New Orleans Saints": "NO",
+  "New York Giants": "NYG",
+  "New York Jets": "NYJ",
+  "Philadelphia Eagles": "PHI",
+  "Pittsburgh Steelers": "PIT",
+  "San Francisco 49ers": "SF",
+  "Seattle Seahawks": "SEA",
+  "Tampa Bay Buccaneers": "TB",
+  "Tennessee Titans": "TEN",
+  "Washington Commanders": "WAS",
 };
+
+const TEAM_NAMES: Record<string, string> = Object.fromEntries(
+  Object.entries(TEAM_ABBR).map(([name, abbr]) => [abbr, name])
+);
 
 /** Minimal CSV parser that handles quoted fields. */
 function parseCsv(text: string): string[][] {
@@ -128,13 +133,13 @@ function easternOffset(gameday: string): string {
 }
 
 /** Most recent NFL season year for "now" (season starts in August). */
-function currentSeason(): number {
+export function currentSeason(): number {
   const now = new Date();
   const year = now.getUTCFullYear();
   return now.getUTCMonth() >= 7 ? year : year - 1;
 }
 
-interface RawGame {
+export interface RawGame {
   game_id: string;
   season: number;
   week: number;
@@ -144,14 +149,30 @@ interface RawGame {
   away_score: string;
   home_team: string;
   home_score: string;
+  spread_line: string; // nflverse convention: negative = home favored
 }
 
-async function loadSeason(season: number): Promise<RawGame[]> {
+// In-memory cache of the schedules CSV (it covers all seasons, so one
+// fetch serves every caller for a while). 6h TTL.
+let csvCache: { text: string; fetchedAt: number } | null = null;
+const CSV_TTL_MS = 6 * 60 * 60 * 1000;
+
+async function fetchSchedulesCsv(): Promise<string> {
+  if (csvCache && Date.now() - csvCache.fetchedAt < CSV_TTL_MS) {
+    return csvCache.text;
+  }
   const res = await fetch(SCHEDULES_URL, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`nflverse schedules fetch failed: ${res.status}`);
   }
   const text = await res.text();
+  csvCache = { text, fetchedAt: Date.now() };
+  return text;
+}
+
+/** Load one season of regular-season games, chronological (week asc). */
+export async function loadSeason(season: number): Promise<RawGame[]> {
+  const text = await fetchSchedulesCsv();
   const rows = parseCsv(text);
   const header = rows[0];
   const idx = (name: string) => header.indexOf(name);
@@ -171,8 +192,10 @@ async function loadSeason(season: number): Promise<RawGame[]> {
       away_score: r[idx("away_score")],
       home_team: r[idx("home_team")],
       home_score: r[idx("home_score")],
+      spread_line: r[idx("spread_line")] ?? "",
     });
   }
+  out.sort((a, b) => a.week - b.week || a.game_id.localeCompare(b.game_id));
   return out;
 }
 
