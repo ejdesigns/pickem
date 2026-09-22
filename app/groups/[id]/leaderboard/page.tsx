@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import Header from "@/components/Header";
+import { PageHero } from "@/components/ui";
 
 interface Standing {
   user_id: string;
@@ -49,26 +50,32 @@ export default function LeaderboardPage({ params }: { params: { id: string } }) 
     load(week);
   }, [week, load]);
 
+  const leader = standings[0];
+
   return (
     <>
       <Header />
       <main>
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-extrabold">Leaderboard</h1>
-          <Link
-            href={`/groups/${groupId}`}
-            className="shrink-0 rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold transition hover:bg-slate-700"
-          >
-            ← Picks
-          </Link>
-        </div>
+        <PageHero
+          eyebrow="Pick'em · Standings"
+          title={
+            <>
+              Leader<span className="text-volt">board</span>
+            </>
+          }
+          actions={
+            <Link href={`/groups/${groupId}`} className="btn-ghost">
+              ← Picks
+            </Link>
+          }
+        />
 
         {/* Season / week toggle */}
-        <div className="mt-4 flex items-center gap-2 overflow-x-auto rounded-xl bg-slate-900 p-2">
+        <div className="rise rise-1 mt-8 flex items-center gap-2 overflow-x-auto rounded-2xl border border-white/5 bg-surface p-2">
           <button
             onClick={() => setWeek(null)}
-            className={`shrink-0 rounded-lg px-4 py-2 text-sm font-bold transition ${
-              week === null ? "bg-emerald-500 text-slate-950" : "text-slate-400 hover:bg-slate-800"
+            className={`shrink-0 rounded-xl px-5 py-2.5 text-sm font-bold transition ${
+              week === null ? "tab-active" : "tab-idle"
             }`}
           >
             Season
@@ -77,8 +84,8 @@ export default function LeaderboardPage({ params }: { params: { id: string } }) 
             <button
               key={w}
               onClick={() => setWeek(w)}
-              className={`shrink-0 rounded-lg px-3 py-2 text-sm font-bold transition ${
-                week === w ? "bg-emerald-500 text-slate-950" : "text-slate-400 hover:bg-slate-800"
+              className={`tnum shrink-0 rounded-xl px-3.5 py-2.5 text-sm font-bold transition ${
+                week === w ? "tab-active" : "tab-idle"
               }`}
             >
               {w}
@@ -87,52 +94,97 @@ export default function LeaderboardPage({ params }: { params: { id: string } }) 
         </div>
 
         {error && (
-          <p className="mt-4 rounded-xl bg-red-950 px-4 py-3 text-sm text-red-300">
+          <p className="mt-4 rounded-2xl bg-rose-soft px-5 py-3.5 text-sm text-rose">
             {error}
           </p>
         )}
 
         {loading ? (
-          <p className="mt-6 text-slate-400">Loading…</p>
-        ) : standings.length === 0 ? (
-          <p className="mt-6 rounded-xl bg-slate-900 p-5 text-sm text-slate-400">
-            No standings yet. Standings appear once games go final and the
-            score updater has run.
-          </p>
-        ) : (
-          <ol className="mt-4 space-y-2">
-            {standings.map((s, i) => (
-              <li
-                key={s.user_id}
-                className="flex items-center gap-3 rounded-xl bg-slate-900 px-4 py-3"
-              >
-                <span
-                  className={`w-7 text-center text-lg font-extrabold ${
-                    i === 0 ? "text-amber-300" : i === 1 ? "text-slate-300" : i === 2 ? "text-amber-600" : "text-slate-500"
-                  }`}
-                >
-                  {i + 1}
-                </span>
-                <span className="min-w-0 flex-1 truncate font-semibold">
-                  {s.display_name}
-                </span>
-                {s.streak >= 2 && (
-                  <span className="rounded-full bg-orange-950 px-2 py-0.5 text-xs font-bold text-orange-300">
-                    🔥 {s.streak}
-                  </span>
-                )}
-                <span className="font-mono text-sm text-slate-300">
-                  {s.wins}–{s.losses}
-                </span>
-              </li>
+          <div className="mt-6 space-y-2.5">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="card h-16 animate-pulse" />
             ))}
-          </ol>
-        )}
+          </div>
+        ) : standings.length === 0 ? (
+          <div className="card mt-6 px-6 py-12 text-center">
+            <p className="font-display text-xl uppercase tracking-wide text-mist">
+              No standings yet
+            </p>
+            <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-fog">
+              Standings appear once games go final and the score updater has
+              run.
+            </p>
+          </div>
+        ) : (
+          <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_320px]">
+            <ol className="space-y-2.5">
+              {standings.map((s, i) => {
+                const isLeader = i === 0;
+                return (
+                  <li
+                    key={s.user_id}
+                    className={`flex items-center gap-4 rounded-2xl border px-5 py-4 transition ${
+                      isLeader
+                        ? "border-volt/30 bg-volt-soft/50 shadow-glow-volt"
+                        : "border-white/5 bg-surface"
+                    }`}
+                  >
+                    <span
+                      className={`num-display w-10 shrink-0 text-center text-2xl ${
+                        i === 0
+                          ? "text-gold"
+                          : i === 1
+                            ? "text-mist"
+                            : i === 2
+                              ? "text-gold/60"
+                              : "text-smoke"
+                      }`}
+                    >
+                      {i + 1}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate font-bold text-mist">
+                      {s.display_name}
+                      {isLeader && (
+                        <span className="chip-volt ml-3 !text-[10px]">Leader</span>
+                      )}
+                    </span>
+                    {s.streak >= 2 && (
+                      <span className="chip-gold">🔥 {s.streak}</span>
+                    )}
+                    <span className="tnum text-lg font-bold text-mist">
+                      {s.wins}
+                      <span className="text-smoke">–{s.losses}</span>
+                    </span>
+                  </li>
+                );
+              })}
+            </ol>
 
-        <p className="mt-6 text-xs text-slate-500">
-          Only final games count. Ties award no win. Skipped games don&apos;t
-          hurt your streak.
-        </p>
+            {leader && (
+              <aside className="card rise rise-2 h-fit p-6 lg:sticky lg:top-24">
+                <p className="kicker-volt">Clubhouse leader</p>
+                <p className="mt-2 truncate font-display text-3xl uppercase tracking-wide text-mist">
+                  {leader.display_name}
+                </p>
+                <p className="num-display mt-2 text-6xl text-volt">
+                  {leader.wins}
+                  <span className="text-3xl text-smoke">–{leader.losses}</span>
+                </p>
+                {leader.streak >= 2 && (
+                  <p className="mt-3 text-sm font-bold text-gold">
+                    🔥 {leader.streak}-game streak
+                  </p>
+                )}
+                <div className="divider mt-4 pt-4">
+                  <p className="text-xs leading-relaxed text-smoke">
+                    Only final games count. Ties award no win. Skipped games
+                    don&apos;t hurt your streak.
+                  </p>
+                </div>
+              </aside>
+            )}
+          </div>
+        )}
       </main>
     </>
   );

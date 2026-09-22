@@ -9,6 +9,7 @@ import {
   type PropStat,
 } from "@/lib/player-props";
 import { LineGrader } from "../line-grader";
+import { RgNotice, SectionCard, StatTile } from "@/components/ui";
 
 interface Row {
   player_id: string;
@@ -164,175 +165,164 @@ export async function NflPlayerPage({ id }: { id: string }) {
   );
 
   return (
-    <main className="py-8">
-      <Link href="/players?sport=nfl" className="text-sm text-emerald-400">
+    <main>
+      <Link href="/players?sport=nfl" className="link-back pt-8">
         ← Find a player
       </Link>
 
-      <div className="mt-3 flex flex-wrap items-baseline gap-3">
-        <h1 className="text-3xl font-extrabold">{name}</h1>
-        <span className="rounded-full bg-slate-800 px-3 py-1 text-sm font-bold text-slate-200">
-          {team}
-        </span>
-        <span className="rounded-full bg-slate-800 px-3 py-1 text-sm font-semibold text-slate-400">
-          {listedPos ?? ROLE_LABEL[role]}
-        </span>
-        <span className="text-sm text-slate-500">
-          {log.length} games logged
-        </span>
+      {/* ============ PROFILE HERO ============ */}
+      <div className="rise mt-4">
+        <p className="kicker-volt">NFL · Player engine</p>
+        <h1 className="mt-2 font-display text-5xl uppercase leading-[0.95] text-mist sm:text-6xl">
+          {name}
+        </h1>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="chip-volt">{team}</span>
+          <span className="chip-muted">{listedPos ?? ROLE_LABEL[role]}</span>
+          <span className="tnum text-sm text-smoke">
+            {log.length} games logged
+          </span>
+        </div>
       </div>
 
-      <section className="mt-6">
-        <h2 className="text-sm font-bold uppercase tracking-widest text-slate-400">
-          Model projections
-        </h2>
-        <p className="mt-1 text-xs text-slate-500">
+      {/* ============ PROJECTIONS ============ */}
+      <section className="mt-8">
+        <p className="kicker">Model projections</p>
+        <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-smoke">
           Recency-weighted averages over the last 10 played games — descriptive,
           not a recommendation.
         </p>
         {projs.length > 0 ? (
-          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {projs.map((p) => (
-              <div key={p.stat.key} className="rounded-xl bg-slate-900 p-4">
-                <p className="text-xs uppercase tracking-wide text-slate-500">
-                  {p.stat.label}
-                </p>
-                <p className="mt-1 text-2xl font-extrabold text-emerald-400">
-                  {p.projection !== null ? p.projection.toFixed(1) : "—"}
-                </p>
-                <p className="mt-1 text-[11px] text-slate-500">
-                  Last 5: {p.last5Avg !== null ? p.last5Avg.toFixed(1) : "—"} ·
-                  Season: {p.seasonAvg !== null ? p.seasonAvg.toFixed(1) : "—"}
-                </p>
+          <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {projs.map((p, i) => (
+              <div key={p.stat.key} className={`rise rise-${i + 1}`}>
+                <StatTile
+                  label={p.stat.label}
+                  value={p.projection !== null ? p.projection.toFixed(1) : "—"}
+                  sub={`Last 5: ${p.last5Avg !== null ? p.last5Avg.toFixed(1) : "—"} · Season: ${p.seasonAvg !== null ? p.seasonAvg.toFixed(1) : "—"}`}
+                  accent={i === 0}
+                />
               </div>
             ))}
           </div>
         ) : (
-          <p className="mt-3 text-sm text-slate-500">
+          <p className="mt-4 text-sm text-fog">
             Not enough logged games for projections yet.
           </p>
         )}
       </section>
 
-      <section className="mt-6">
+      <div className="mt-6">
         <LineGrader
           log={log}
           statOptions={graderStats.length > 0 ? graderStats : NFL_PROP_STATS}
           defaultStat={featured[0]}
         />
-      </section>
+      </div>
 
-      <section className="mt-6 rounded-xl bg-slate-900 p-4">
-        <h2 className="text-sm font-bold uppercase tracking-widest text-slate-400">
-          Last 10 games
-        </h2>
-        <div className="mt-3 overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
-                <th className="py-1 pr-2">Date</th>
-                <th className="py-1 pr-2">Opp</th>
-                {role === "qb" && (
-                  <>
-                    <th className="py-1 pr-2 text-right">Cmp/Att</th>
-                    <th className="py-1 pr-2 text-right">Yds</th>
-                    <th className="py-1 pr-2 text-right">TD</th>
-                    <th className="py-1 text-right">Int</th>
-                  </>
-                )}
-                {role === "skill" && (
-                  <>
-                    <th className="py-1 pr-2 text-right">Rush (att-yds-td)</th>
-                    <th className="py-1 text-right">Rec (rec-tgt-yds-td)</th>
-                  </>
-                )}
-                {role === "kicker" && (
-                  <>
-                    <th className="py-1 pr-2 text-right">FG</th>
-                    <th className="py-1 pr-2 text-right">XP</th>
-                    <th className="py-1 text-right">Pts</th>
-                  </>
-                )}
-                {role === "defense" && (
-                  <>
-                    <th className="py-1 pr-2 text-right">Tkl</th>
-                    <th className="py-1 pr-2 text-right">Sack</th>
-                    <th className="py-1 text-right">Int</th>
-                  </>
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {last10.map((r) => {
-                const g = r.games;
-                const isHome = g.home_team === r.team_abbr;
-                return (
-                  <tr key={g.id} className="border-t border-slate-800">
-                    <td className="py-1.5 pr-2 text-slate-400">
-                      {fmtDate(g.kickoff)}
-                    </td>
-                    <td className="py-1.5 pr-2 font-semibold">
-                      {isHome ? "vs" : "@"} {isHome ? g.away_team : g.home_team}
-                    </td>
-                    {role === "qb" && (
-                      <>
-                        <td className="py-1.5 pr-2 text-right text-slate-400">
-                          {dash(r.pass_cmp)}/{dash(r.pass_att)}
-                        </td>
-                        <td className="py-1.5 pr-2 text-right font-bold">
-                          {dash(r.pass_yds)}
-                        </td>
-                        <td className="py-1.5 pr-2 text-right">
-                          {dash(r.pass_td)}
-                        </td>
-                        <td className="py-1.5 text-right">{dash(r.pass_int)}</td>
-                      </>
-                    )}
-                    {role === "skill" && (
-                      <>
-                        <td className="py-1.5 pr-2 text-right text-slate-400">
-                          {dash(r.rush_att)}-{dash(r.rush_yds)}-{dash(r.rush_td)}
-                        </td>
-                        <td className="py-1.5 text-right font-bold">
-                          {dash(r.receptions)}/{dash(r.targets)}-{dash(r.rec_yds)}-
-                          {dash(r.rec_td)}
-                        </td>
-                      </>
-                    )}
-                    {role === "kicker" && (
-                      <>
-                        <td className="py-1.5 pr-2 text-right font-bold">
-                          {dash(r.fg_made)}/{dash(r.fg_att)}
-                        </td>
-                        <td className="py-1.5 pr-2 text-right">
-                          {dash(r.xp_made)}/{dash(r.xp_att)}
-                        </td>
-                        <td className="py-1.5 text-right">{dash(r.kick_pts)}</td>
-                      </>
-                    )}
-                    {role === "defense" && (
-                      <>
-                        <td className="py-1.5 pr-2 text-right font-bold">
-                          {dash(r.tackles)}
-                        </td>
-                        <td className="py-1.5 pr-2 text-right">
-                          {dash(r.sacks)}
-                        </td>
-                        <td className="py-1.5 text-right">{dash(r.def_int)}</td>
-                      </>
-                    )}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <div className="mt-6">
+        <SectionCard title="Last 10 games" copy="Newest first.">
+          <div className="table-wrap !border-0 !bg-transparent !shadow-none">
+            <table className="dtable">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Opp</th>
+                  {role === "qb" && (
+                    <>
+                      <th className="!text-right">Cmp/Att</th>
+                      <th className="!text-right">Yds</th>
+                      <th className="!text-right">TD</th>
+                      <th className="!text-right">Int</th>
+                    </>
+                  )}
+                  {role === "skill" && (
+                    <>
+                      <th className="!text-right">Rush (att-yds-td)</th>
+                      <th className="!text-right">Rec (rec-tgt-yds-td)</th>
+                    </>
+                  )}
+                  {role === "kicker" && (
+                    <>
+                      <th className="!text-right">FG</th>
+                      <th className="!text-right">XP</th>
+                      <th className="!text-right">Pts</th>
+                    </>
+                  )}
+                  {role === "defense" && (
+                    <>
+                      <th className="!text-right">Tkl</th>
+                      <th className="!text-right">Sack</th>
+                      <th className="!text-right">Int</th>
+                    </>
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {last10.map((r) => {
+                  const g = r.games;
+                  const isHome = g.home_team === r.team_abbr;
+                  return (
+                    <tr key={g.id}>
+                      <td className="whitespace-nowrap text-fog">
+                        {fmtDate(g.kickoff)}
+                      </td>
+                      <td className="whitespace-nowrap font-bold text-mist">
+                        {isHome ? "vs" : "@"} {isHome ? g.away_team : g.home_team}
+                      </td>
+                      {role === "qb" && (
+                        <>
+                          <td className="text-right text-fog">
+                            {dash(r.pass_cmp)}/{dash(r.pass_att)}
+                          </td>
+                          <td className="text-right font-bold text-volt">
+                            {dash(r.pass_yds)}
+                          </td>
+                          <td className="text-right">{dash(r.pass_td)}</td>
+                          <td className="text-right">{dash(r.pass_int)}</td>
+                        </>
+                      )}
+                      {role === "skill" && (
+                        <>
+                          <td className="text-right text-fog">
+                            {dash(r.rush_att)}-{dash(r.rush_yds)}-{dash(r.rush_td)}
+                          </td>
+                          <td className="text-right font-bold text-volt">
+                            {dash(r.receptions)}/{dash(r.targets)}-
+                            {dash(r.rec_yds)}-{dash(r.rec_td)}
+                          </td>
+                        </>
+                      )}
+                      {role === "kicker" && (
+                        <>
+                          <td className="text-right font-bold text-volt">
+                            {dash(r.fg_made)}/{dash(r.fg_att)}
+                          </td>
+                          <td className="text-right">
+                            {dash(r.xp_made)}/{dash(r.xp_att)}
+                          </td>
+                          <td className="text-right">{dash(r.kick_pts)}</td>
+                        </>
+                      )}
+                      {role === "defense" && (
+                        <>
+                          <td className="text-right font-bold text-volt">
+                            {dash(r.tackles)}
+                          </td>
+                          <td className="text-right">{dash(r.sacks)}</td>
+                          <td className="text-right">{dash(r.def_int)}</td>
+                        </>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </SectionCard>
+      </div>
 
-      <p className="mt-8 text-center text-xs text-slate-500">
-        For information only — not betting advice. 21+. If gambling stops being
-        fun, call 1-800-GAMBLER.
-      </p>
+      <RgNotice />
     </main>
   );
 }

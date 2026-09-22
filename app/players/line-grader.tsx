@@ -8,6 +8,7 @@ import {
   type PlayerGame,
   type PropStat,
 } from "@/lib/player-props";
+import { SectionCard } from "@/components/ui";
 
 /**
  * Line grader — the user types the line they see at their book; we show our
@@ -48,65 +49,72 @@ export function LineGrader({
       : null;
 
   return (
-    <div className="rounded-xl bg-slate-900 p-4">
-      <h2 className="text-sm font-bold uppercase tracking-widest text-slate-400">
-        Line grader
-      </h2>
-      <p className="mt-1 text-xs text-slate-500">
-        Type the line from your book — we&apos;ll stack our projection and the
-        player&apos;s history against it.
-      </p>
-
-      <div className="mt-3 flex flex-wrap gap-2">
-        <select
-          value={stat}
-          onChange={(e) => setStat(e.target.value as PropStat)}
-          className="rounded-lg bg-slate-950 px-3 py-2 text-sm font-semibold text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-        >
-          {statOptions.map((s) => (
-            <option key={s.key} value={s.key}>
-              {s.label}
-            </option>
-          ))}
-        </select>
-        <input
-          value={line}
-          onChange={(e) => setLine(e.target.value)}
-          inputMode="decimal"
-          placeholder={`Line, e.g. 24.5`}
-          className="w-36 rounded-lg bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-        />
+    <SectionCard
+      title="Line grader"
+      copy="Type the line from your book — we'll stack our projection and the player's history against it."
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <label className="flex-1">
+          <span className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-smoke">
+            Stat
+          </span>
+          <select
+            value={stat}
+            onChange={(e) => setStat(e.target.value as PropStat)}
+            className="input"
+          >
+            {statOptions.map((s) => (
+              <option key={s.key} value={s.key}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex-1">
+          <span className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-smoke">
+            Line
+          </span>
+          <input
+            value={line}
+            onChange={(e) => setLine(e.target.value)}
+            inputMode="decimal"
+            placeholder="Line, e.g. 24.5"
+            className="input tnum"
+          />
+        </label>
       </div>
 
       <div className="mt-4 grid grid-cols-3 gap-3 text-center">
-        <div className="rounded-lg bg-slate-950 p-3">
-          <p className="text-xs uppercase tracking-wide text-slate-500">
+        <div className="inset p-4">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-smoke">
             Our projection
           </p>
-          <p className="mt-1 text-xl font-extrabold text-emerald-400">
+          <p className="tnum mt-1 text-2xl font-extrabold text-volt">
             {proj.projection !== null ? proj.projection.toFixed(1) : "—"}
           </p>
-          <p className="mt-0.5 text-[11px] text-slate-500">
+          <p className="mt-0.5 text-[11px] text-smoke">
             weighted last {proj.games}
           </p>
         </div>
-        <div className="rounded-lg bg-slate-950 p-3">
-          <p className="text-xs uppercase tracking-wide text-slate-500">
+        <div className="inset p-4">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-smoke">
             Your line
           </p>
-          <p className="mt-1 text-xl font-extrabold">
+          <p className="tnum mt-1 text-2xl font-extrabold text-mist">
             {hr !== null ? hr.line : "—"}
           </p>
-          <p className="mt-0.5 text-[11px] text-slate-500">{label}</p>
+          <p className="mt-0.5 text-[11px] text-smoke">{label}</p>
         </div>
-        <div className="rounded-lg bg-slate-950 p-3">
-          <p className="text-xs uppercase tracking-wide text-slate-500">
+        <div className="inset p-4">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-smoke">
             Hit rate
           </p>
-          <p className="mt-1 text-xl font-extrabold">
-            {hr !== null && hr.pct !== null ? `${hr.overs}–${hr.total - hr.overs}` : "—"}
+          <p className="tnum mt-1 text-2xl font-extrabold text-mist">
+            {hr !== null && hr.pct !== null
+              ? `${hr.overs}–${hr.total - hr.overs}`
+              : "—"}
           </p>
-          <p className="mt-0.5 text-[11px] text-slate-500">
+          <p className="mt-0.5 text-[11px] text-smoke">
             {hr !== null && hr.pct !== null
               ? `${hr.pct}% over last ${hr.total}`
               : "type a line"}
@@ -115,13 +123,13 @@ export function LineGrader({
       </div>
 
       {edge !== null && (
-        <p className="mt-3 rounded-lg bg-slate-950 p-3 text-sm">
-          <span className="text-slate-400">Projection vs your line: </span>
-          <span className="font-bold">
+        <p className="mt-3 rounded-xl border border-volt/20 bg-volt-soft p-4 text-sm">
+          <span className="text-fog">Projection vs your line: </span>
+          <span className="tnum font-extrabold text-volt">
             {edge > 0 ? "+" : ""}
             {edge.toFixed(1)}
           </span>{" "}
-          <span className="text-slate-500">
+          <span className="text-smoke">
             (projection {edge > 0 ? "above" : edge < 0 ? "below" : "on"} the
             line — descriptive, not a recommendation)
           </span>
@@ -129,17 +137,17 @@ export function LineGrader({
       )}
 
       {hr !== null && hr.games.length > 0 && (
-        <div className="mt-4">
-          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+        <div className="mt-5">
+          <p className="kicker">
             Game by game vs {hr.line} (most recent first)
           </p>
-          <div className="mt-2 space-y-1">
+          <div className="mt-2 space-y-1.5">
             {hr.games.slice(0, 10).map((g) => (
               <div
                 key={g.gameId}
-                className="flex items-center justify-between rounded-lg bg-slate-950 px-3 py-1.5 text-sm"
+                className="inset flex items-center justify-between px-3.5 py-2.5 text-sm"
               >
-                <span className="text-slate-400">
+                <span className="text-fog">
                   {new Date(g.kickoff).toLocaleDateString("en-US", {
                     month: "short",
                     day: "numeric",
@@ -147,18 +155,20 @@ export function LineGrader({
                   vs {g.opponent}
                 </span>
                 <span className="flex items-center gap-2">
-                  <span className="font-mono font-bold">{g.value}</span>
+                  <span className="tnum font-bold text-mist">{g.value}</span>
                   <span
                     className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
                       g.over
-                        ? "bg-emerald-500/15 text-emerald-400"
-                        : "bg-slate-700 text-slate-300"
+                        ? "bg-volt/15 text-volt"
+                        : "bg-surface-3 text-fog"
                     }`}
                   >
-                    {g.over ? `over by ${g.margin}` : `under by ${Math.abs(g.margin)}`}
+                    {g.over
+                      ? `over by ${g.margin}`
+                      : `under by ${Math.abs(g.margin)}`}
                   </span>
                   {Math.abs(g.margin) <= 2 && (
-                    <span className="text-[11px] font-semibold text-amber-400">
+                    <span className="text-[11px] font-semibold text-gold">
                       close
                     </span>
                   )}
@@ -168,6 +178,6 @@ export function LineGrader({
           </div>
         </div>
       )}
-    </div>
+    </SectionCard>
   );
 }

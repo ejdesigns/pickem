@@ -110,86 +110,96 @@ export default function GroupPage({ params }: { params: { id: string } }) {
     <>
       <Header />
       <main>
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="truncate text-2xl font-extrabold">{groupName || "…"}</h1>
-          <Link
-            href={`/groups/${groupId}/leaderboard`}
-            className="shrink-0 rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold transition hover:bg-slate-700"
-          >
+        <div className="rise flex flex-wrap items-center justify-between gap-4 pt-8">
+          <div>
+            <p className="kicker-volt">Pick&apos;em · Week {week ?? "…"}</p>
+            <h1 className="mt-1 truncate font-display text-4xl uppercase tracking-wide text-mist sm:text-5xl">
+              {groupName || "…"}
+            </h1>
+            {week !== null && games.length > 0 && (
+              <p className="tnum mt-2 text-sm text-fog">
+                <span className="font-bold text-volt">{pickedCount}</span> of{" "}
+                {games.length} picked
+              </p>
+            )}
+          </div>
+          <Link href={`/groups/${groupId}/leaderboard`} className="btn-ghost">
             🏆 Board
           </Link>
         </div>
 
         {/* Week selector */}
-        <div className="mt-4 flex items-center justify-between rounded-xl bg-slate-900 px-2 py-2">
+        <div className="rise rise-1 mt-6 flex items-center justify-between rounded-2xl border border-white/5 bg-surface px-2 py-2">
           <button
             disabled={week === null || week <= 1}
             onClick={() => setWeek((w) => (w !== null && w > 1 ? w - 1 : w))}
-            className="rounded-lg px-4 py-2 font-bold text-slate-300 transition hover:bg-slate-800 disabled:opacity-30"
+            className="rounded-xl px-5 py-2.5 text-lg font-bold text-fog transition hover:bg-white/5 hover:text-mist disabled:opacity-30"
           >
             ←
           </button>
-          <span className="font-bold">Week {week ?? "…"}</span>
+          <span className="num-display text-xl uppercase tracking-wider text-mist">
+            Week {week ?? "…"}
+          </span>
           <button
             disabled={week === null || week >= 18}
             onClick={() => setWeek((w) => (w !== null && w < 18 ? w + 1 : w))}
-            className="rounded-lg px-4 py-2 font-bold text-slate-300 transition hover:bg-slate-800 disabled:opacity-30"
+            className="rounded-xl px-5 py-2.5 text-lg font-bold text-fog transition hover:bg-white/5 hover:text-mist disabled:opacity-30"
           >
             →
           </button>
         </div>
 
-        {week !== null && games.length > 0 && (
-          <p className="mt-3 text-sm text-slate-400">
-            {pickedCount} of {games.length} picked
-          </p>
-        )}
-
         {error && (
-          <p className="mt-4 rounded-xl bg-red-950 px-4 py-3 text-sm text-red-300">
+          <p className="mt-4 rounded-2xl bg-rose-soft px-5 py-3.5 text-sm text-rose">
             {error}
           </p>
         )}
 
         {loading ? (
-          <p className="mt-6 text-slate-400">Loading games…</p>
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="card h-52 animate-pulse" />
+            ))}
+          </div>
         ) : games.length === 0 ? (
-          <p className="mt-6 rounded-xl bg-slate-900 p-5 text-sm text-slate-400">
-            No games loaded for Week {week} yet. Games are pulled from nflverse
-            automatically — check back soon, or ask the group admin to run the
-            ingest.
-          </p>
+          <div className="card mt-6 px-6 py-12 text-center">
+            <p className="font-display text-xl uppercase tracking-wide text-mist">
+              No games yet
+            </p>
+            <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-fog">
+              No games loaded for Week {week} yet. Games are pulled from
+              nflverse automatically — check back soon.
+            </p>
+          </div>
         ) : (
-          <ul className="mt-4 space-y-3">
-            {games.map((g) => {
+          <ul className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {games.map((g, i) => {
               const locked = isLocked(g);
               const result = pickResult(g, picks[g.id]);
+              const statusChip =
+                g.status === "final" ? (
+                  <span className="chip-muted tnum">
+                    Final {g.away_score}–{g.home_score}
+                  </span>
+                ) : g.status === "in_progress" ? (
+                  <span className="chip-gold tnum animate-pulse-soft">
+                    Live {g.away_score}–{g.home_score}
+                  </span>
+                ) : locked ? (
+                  <span className="chip-muted">Locked</span>
+                ) : (
+                  <span className="chip-volt">Open</span>
+                );
               return (
-                <li key={g.id} className="rounded-xl bg-slate-900 p-4">
-                  <div className="flex items-center justify-between text-xs text-slate-400">
-                    <span>{formatKickoff(g.kickoff)}</span>
-                    <span
-                      className={
-                        g.status === "final"
-                          ? "font-semibold text-slate-300"
-                          : g.status === "in_progress"
-                            ? "font-semibold text-amber-300"
-                            : locked
-                              ? "text-slate-500"
-                              : "text-emerald-300"
-                      }
-                    >
-                      {g.status === "final"
-                        ? `Final ${g.away_score}–${g.home_score}`
-                        : g.status === "in_progress"
-                          ? `Live ${g.away_score}–${g.home_score}`
-                          : locked
-                            ? "Locked"
-                            : "Open"}
+                <li key={g.id} className={`card-hover rise rise-${(i % 4) + 1} p-5`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-smoke">
+                      {formatKickoff(g.kickoff)}
                     </span>
+                    {statusChip}
                   </div>
 
-                  <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div className="mt-4 grid grid-cols-2 gap-2.5">
                     {[
                       { abbr: g.away_team, name: g.away_team_name },
                       { abbr: g.home_team, name: g.home_team_name },
@@ -200,16 +210,20 @@ export default function GroupPage({ params }: { params: { id: string } }) {
                           key={t.abbr}
                           disabled={locked || saving === g.id}
                           onClick={() => makePick(g, t.abbr)}
-                          className={`rounded-xl border-2 px-3 py-3 text-left transition ${
+                          className={`rounded-xl border-2 px-3 py-3.5 text-left transition-all duration-150 ${
                             selected
-                              ? "border-emerald-500 bg-emerald-950"
-                              : "border-slate-800 bg-slate-950 hover:border-slate-600"
+                              ? "border-volt bg-volt-soft shadow-glow-volt"
+                              : "border-line bg-surface-2 hover:-translate-y-0.5 hover:border-fog/40"
                           } ${locked ? "cursor-not-allowed opacity-60" : ""}`}
                         >
-                          <span className="block text-lg font-extrabold">
+                          <span
+                            className={`num-display block text-2xl ${
+                              selected ? "text-volt" : "text-mist"
+                            }`}
+                          >
                             {t.abbr}
                           </span>
-                          <span className="block truncate text-xs text-slate-400">
+                          <span className="block truncate text-xs text-fog">
                             {t.name}
                           </span>
                         </button>
@@ -219,7 +233,9 @@ export default function GroupPage({ params }: { params: { id: string } }) {
 
                   {result && (
                     <p
-                      className={`mt-2 text-sm font-bold ${result === "W" ? "text-emerald-400" : "text-red-400"}`}
+                      className={`tnum mt-3 text-sm font-bold ${
+                        result === "W" ? "text-volt" : "text-rose"
+                      }`}
                     >
                       {result === "W" ? "✓ Correct" : "✗ Missed"}
                     </p>

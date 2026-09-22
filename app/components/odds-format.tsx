@@ -62,7 +62,7 @@ export function OddsFormatToggle() {
   const { format, setFormat } = useOddsFormat();
   return (
     <div
-      className="inline-flex rounded-lg bg-slate-900 p-1"
+      className="inline-flex rounded-xl border border-line bg-surface-2 p-1 shadow-card"
       role="group"
       aria-label="Odds format"
     >
@@ -72,10 +72,10 @@ export function OddsFormatToggle() {
           type="button"
           onClick={() => setFormat(f.key)}
           aria-pressed={format === f.key}
-          className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
+          className={`rounded-lg px-3.5 py-1.5 text-xs font-bold transition ${
             format === f.key
-              ? "bg-emerald-500 text-slate-950"
-              : "text-slate-400 hover:text-slate-200"
+              ? "bg-volt text-volt-ink shadow-glow-volt"
+              : "text-fog hover:text-mist"
           }`}
         >
           {f.label}

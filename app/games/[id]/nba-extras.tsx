@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildGameNotes, type TeamBoxInput } from "@/lib/player-props";
+import { SectionCard } from "@/components/ui";
 
 /**
  * NBA-only additions to the game page: box score with player links, and each
@@ -124,39 +125,41 @@ function BoxTable({ rows, teamAbbr }: { rows: BoxRow[]; teamAbbr: string }) {
   if (team.length === 0) return null;
   return (
     <div>
-      <p className="mb-1 text-sm font-bold">{teamAbbr}</p>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+      <p className="mb-2 font-display text-lg uppercase tracking-wide text-mist">
+        {teamAbbr}
+      </p>
+      <div className="table-wrap !border-0 !bg-transparent !shadow-none">
+        <table className="dtable">
           <thead>
-            <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
-              <th className="py-1 pr-2">Player</th>
-              <th className="py-1 pr-2 text-right">MIN</th>
-              <th className="py-1 pr-2 text-right">PTS</th>
-              <th className="py-1 pr-2 text-right">REB</th>
-              <th className="py-1 pr-2 text-right">AST</th>
-              <th className="py-1 text-right">STL/BLK</th>
+            <tr>
+              <th>Player</th>
+              <th className="!text-right">MIN</th>
+              <th className="!text-right">PTS</th>
+              <th className="!text-right">REB</th>
+              <th className="!text-right">AST</th>
+              <th className="!text-right">STL/BLK</th>
             </tr>
           </thead>
           <tbody>
             {team.map((r) => (
-              <tr key={r.player_id} className="border-t border-slate-800">
-                <td className="py-1.5 pr-2">
+              <tr key={r.player_id}>
+                <td>
                   <Link
                     href={`/players/${r.player_id}`}
-                    className="font-semibold text-emerald-400 hover:underline"
+                    className="font-bold text-volt hover:underline"
                   >
                     {r.player_name}
                   </Link>
                 </td>
-                <td className="py-1.5 pr-2 text-right text-slate-400">
+                <td className="text-right text-fog">
                   {r.minutes !== null ? Math.round(r.minutes) : "—"}
                 </td>
-                <td className="py-1.5 pr-2 text-right font-bold">
+                <td className="text-right font-bold text-mist">
                   {r.points ?? "—"}
                 </td>
-                <td className="py-1.5 pr-2 text-right">{r.rebounds ?? "—"}</td>
-                <td className="py-1.5 pr-2 text-right">{r.assists ?? "—"}</td>
-                <td className="py-1.5 text-right text-slate-400">
+                <td className="text-right">{r.rebounds ?? "—"}</td>
+                <td className="text-right">{r.assists ?? "—"}</td>
+                <td className="text-right text-fog">
                   {r.steals ?? 0}/{r.blocks ?? 0}
                 </td>
               </tr>
@@ -177,7 +180,7 @@ function LastFiveCard({
 }) {
   if (items.length === 0) {
     return (
-      <p className="text-sm text-slate-400">
+      <p className="text-sm text-fog">
         No recent finals logged for {abbr} yet.
       </p>
     );
@@ -205,29 +208,32 @@ function LastFiveCard({
               )
             : [];
         return (
-          <div key={g.id} className="rounded-lg bg-slate-950 p-3">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-bold">
+          <div key={g.id} className="inset p-4">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-bold text-mist">
                 <span
-                  className={`mr-2 inline-block w-6 text-center rounded text-xs font-extrabold ${
-                    won ? "bg-emerald-500 text-slate-950" : "bg-slate-700 text-slate-200"
+                  className={`mr-2 inline-flex h-6 w-6 items-center justify-center rounded-lg text-xs font-extrabold ${
+                    won ? "bg-volt text-volt-ink" : "bg-surface-3 text-fog"
                   }`}
                 >
                   {won ? "W" : "L"}
                 </span>
                 {isHome ? "vs" : "@"} {opp}
               </p>
-              <p className="font-mono text-sm text-slate-300">
+              <p className="tnum text-sm font-bold text-mist">
                 {us}–{them}
-                <span className="ml-2 font-sans text-xs text-slate-500">
+                <span className="ml-2 text-xs font-medium text-smoke">
                   {fmtDate(g.kickoff)}
                 </span>
               </p>
             </div>
             {notes.length > 0 && (
-              <ul className="mt-2 space-y-1 text-xs text-slate-400">
+              <ul className="mt-2.5 space-y-1 text-xs leading-relaxed text-fog">
                 {notes.map((n, i) => (
-                  <li key={i}>• {n}</li>
+                  <li key={i} className="flex gap-1.5">
+                    <span className="text-volt">▸</span>
+                    <span>{n}</span>
+                  </li>
                 ))}
               </ul>
             )}
@@ -258,37 +264,28 @@ export async function NbaExtras({
   return (
     <>
       {box.length > 0 && (
-        <section className="mt-6 rounded-xl bg-slate-900 p-4">
-          <h2 className="text-sm font-bold uppercase tracking-widest text-slate-400">
-            Box score
-          </h2>
-          <div className="mt-3 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <SectionCard
+          title="Box score"
+          copy="Tap a player for their game log, projections, and line grader."
+        >
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
             <BoxTable rows={box} teamAbbr={awayAbbr} />
             <BoxTable rows={box} teamAbbr={homeAbbr} />
           </div>
-          <p className="mt-3 text-xs text-slate-500">
-            Tap a player for their game log, projections, and line grader.
-          </p>
-        </section>
+        </SectionCard>
       )}
 
-      <section className="mt-6 rounded-xl bg-slate-900 p-4">
-        <h2 className="text-sm font-bold uppercase tracking-widest text-slate-400">
-          Last 5 — {awayAbbr}
-        </h2>
-        <div className="mt-3">
+      <div className="mt-6">
+        <SectionCard title={`Last 5 — ${awayAbbr}`}>
           <LastFiveCard abbr={awayAbbr} items={awayFive} />
-        </div>
-      </section>
+        </SectionCard>
+      </div>
 
-      <section className="mt-6 rounded-xl bg-slate-900 p-4">
-        <h2 className="text-sm font-bold uppercase tracking-widest text-slate-400">
-          Last 5 — {homeAbbr}
-        </h2>
-        <div className="mt-3">
+      <div className="mt-6">
+        <SectionCard title={`Last 5 — ${homeAbbr}`}>
           <LastFiveCard abbr={homeAbbr} items={homeFive} />
-        </div>
-      </section>
+        </SectionCard>
+      </div>
     </>
   );
 }

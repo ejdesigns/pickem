@@ -7,6 +7,7 @@ import {
   OddsPrice,
 } from "@/app/components/odds-format";
 import { LocalKickoff } from "@/app/components/local-kickoff";
+import { EmptyState, PageHero, RgNotice } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -25,87 +26,72 @@ function fmtSpread(x: number | null): string {
 
 function GapBadge({ a }: { a: GameAnalysis }) {
   if (a.gap === null) {
-    return (
-      <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-400">
-        Odds post closer to kickoff
-      </span>
-    );
+    return <span className="chip-muted">Odds post closer to kickoff</span>;
   }
   if (a.gapLevel === "none") {
-    return (
-      <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-300">
-        Numbers and market agree
-      </span>
-    );
+    return <span className="chip-muted">Numbers and market agree</span>;
   }
   const side = a.gap > 0 ? "home" : "away";
   const pct = `${(Math.abs(a.gap) * 100).toFixed(1)}%`;
   const strong = a.gapLevel === "strong";
   return (
-    <span
-      className={`rounded-full px-3 py-1 text-xs font-bold ${
-        strong
-          ? "bg-amber-400 text-slate-950"
-          : "bg-slate-700 text-slate-100"
-      }`}
-    >
-      Numbers lean {side} by {pct}
+    <span className={strong ? "chip-gold" : "chip-ice"}>
+      Numbers lean {side} · {pct}
     </span>
   );
 }
 
-function GameCard({ a }: { a: GameAnalysis }) {
+function GameCard({ a, index }: { a: GameAnalysis; index: number }) {
   const g = a.game;
   const best = a.market.best;
   return (
     <Link
       href={`/games/${g.id}`}
-      className="block rounded-xl bg-slate-900 p-4 transition hover:bg-slate-800"
+      className={`card-hover rise rise-${(index % 4) + 1} block p-5`}
     >
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="font-bold">
-            {g.away_team} <span className="text-slate-500">@</span> {g.home_team}
+        <div className="min-w-0">
+          <p className="truncate text-lg font-bold text-mist">
+            {g.away_team} <span className="text-smoke">@</span> {g.home_team}
           </p>
-          <p className="mt-0.5 text-xs text-slate-400">
+          <p className="mt-1 text-xs font-medium text-smoke">
             <LocalKickoff iso={g.kickoff} />
           </p>
         </div>
         <GapBadge a={a} />
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-        <div className="rounded-lg bg-slate-950 p-3">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Market</p>
-          <p className="mt-1 font-semibold">
+      <div className="mt-4 grid grid-cols-2 gap-2.5 text-sm">
+        <div className="inset p-3.5">
+          <p className="kicker">Market</p>
+          <p className="tnum mt-1.5 font-bold text-mist">
             {g.home_team} {fmtSpread(a.market.spread)}
           </p>
-          <p className="text-slate-400">
+          <p className="tnum text-fog">
             O/U {a.market.total !== null ? a.market.total.toFixed(1) : "—"}
           </p>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="tnum mt-1.5 text-[11px] text-smoke">
             {a.market.bookCount} book{a.market.bookCount === 1 ? "" : "s"}
           </p>
         </div>
-        <div className="rounded-lg bg-slate-950 p-3">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Model</p>
-          <p className="mt-1 font-semibold">
+        <div className="inset border-volt/20 bg-volt-soft/40 p-3.5">
+          <p className="kicker-volt">Model</p>
+          <p className="tnum mt-1.5 font-bold text-mist">
             {g.home_team} {fmtSpread(a.fairSpread)}
           </p>
-          <p className="text-slate-400">
+          <p className="tnum text-volt">
             Win prob {(a.homeWinProb * 100).toFixed(1)}%
           </p>
           {best.homeMl && (
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="tnum mt-1.5 text-[11px] text-smoke">
               Best {g.home_team} ML:{" "}
-              <OddsPrice american={best.homeMl.price} />{" "}
-              <span className="text-slate-600">({best.homeMl.sportsbook})</span>
+              <OddsPrice american={best.homeMl.price} /> ({best.homeMl.sportsbook})
             </p>
           )}
         </div>
       </div>
 
-      <p className="mt-3 text-right text-xs font-semibold text-emerald-400">
+      <p className="mt-4 text-right text-xs font-bold text-volt">
         Full numbers →
       </p>
     </Link>
@@ -119,10 +105,8 @@ function SportToggle({ sport }: { sport: SportKey }) {
         <Link
           key={s}
           href={`/rundown?sport=${s}`}
-          className={`rounded-full px-4 py-1.5 text-sm font-bold ${
-            sport === s
-              ? "bg-emerald-500 text-slate-950"
-              : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+          className={`rounded-xl px-5 py-2.5 text-sm font-bold transition ${
+            sport === s ? "tab-active" : "tab-idle"
           }`}
         >
           {SPORTS[s].name}
@@ -147,61 +131,58 @@ export default async function RundownPage({
 
   return (
     <OddsFormatProvider>
-      <main className="py-8">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-widest text-emerald-400">
-              The Morning Line
-            </p>
-            <h1 className="mt-1 text-3xl font-extrabold">Today&apos;s Numbers</h1>
-            {rundown && (
-              <p className="mt-1 text-sm text-slate-400">
-                {SPORTS[sport].name} Week {rundown.week} ·{" "}
-                {SPORTS[sport].seasonLabel(rundown.season)} · sorted by
-                model-vs-market gap
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            <SportToggle sport={sport} />
-            <OddsFormatToggle />
-          </div>
-        </div>
+      <main>
+        <PageHero
+          eyebrow={`The Morning Line · ${SPORTS[sport].name}`}
+          title={
+            <>
+              Today&apos;s <span className="text-volt">numbers</span>
+            </>
+          }
+          copy="The model's numbers next to the market's numbers. Where they disagree, you'll see it — what you do with that is up to you."
+          actions={
+            <>
+              <SportToggle sport={sport} />
+              <OddsFormatToggle />
+            </>
+          }
+        />
+
+        {rundown && (
+          <p className="rise rise-1 mt-6 text-sm font-medium text-fog">
+            {SPORTS[sport].name} Week {rundown.week} ·{" "}
+            {SPORTS[sport].seasonLabel(rundown.season)} ·{" "}
+            <span className="text-smoke">sorted by model-vs-market gap</span>
+          </p>
+        )}
 
         {sport === "nba" && (
-          <div className="mt-3">
+          <div className="rise rise-2 mt-4">
             <Link
               href="/players"
-              className="inline-block rounded-full bg-slate-800 px-4 py-1.5 text-sm font-bold text-emerald-400 hover:bg-slate-700"
+              className="chip-volt !px-4 !py-2 !text-sm transition hover:bg-volt hover:text-volt-ink"
             >
               Find a player →
             </Link>
           </div>
         )}
 
-        <p className="mt-3 text-sm text-slate-400">
-          The model&apos;s numbers next to the market&apos;s numbers. Where they
-          disagree, you&apos;ll see it — what you do with that is up to you.
-        </p>
-
         {!rundown || rundown.games.length === 0 ? (
-          <div className="mt-8 rounded-xl bg-slate-900 p-6 text-center text-slate-400">
-            <p className="font-semibold text-slate-200">Stats engine warming up</p>
-            <p className="mt-1 text-sm">
-              Games and odds haven&apos;t been loaded yet. Check back soon.
-            </p>
+          <div className="mt-8">
+            <EmptyState
+              title="Stats engine warming up"
+              copy="Games and odds haven't been loaded yet. Check back soon."
+            />
           </div>
         ) : (
-          <div className="mt-6 space-y-4">
-            {rundown.games.map((a) => (
-              <GameCard key={a.game.id} a={a} />
+          <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {rundown.games.map((a, i) => (
+              <GameCard key={a.game.id} a={a} index={i} />
             ))}
           </div>
         )}
 
-        <p className="mt-8 text-center text-xs text-slate-500">
-          For information only — not betting advice. 21+.
-        </p>
+        <RgNotice />
       </main>
     </OddsFormatProvider>
   );

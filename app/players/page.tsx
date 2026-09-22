@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { PageHero, RgNotice, EmptyState } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -69,74 +70,82 @@ export default async function PlayersPage({
   const league = sport === "nfl" ? "NFL" : "NBA";
 
   return (
-    <main className="py-8">
-      <Link href={`/rundown?sport=${sport}`} className="text-sm text-emerald-400">
+    <main>
+      <Link href={`/rundown?sport=${sport}`} className="link-back pt-8">
         ← {league} numbers
       </Link>
-      <h1 className="mt-3 text-3xl font-extrabold">Find a player</h1>
-      <p className="mt-1 text-sm text-slate-400">
-        Game logs, model projections, and hit rates — information only.
-      </p>
 
-      <div className="mt-4 flex gap-2">
-        {SPORTS.map((s) => (
-          <Link
-            key={s.key}
-            href={`/players?sport=${s.key}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
-            className={`rounded-full px-4 py-1.5 text-sm font-bold ${
-              s.key === sport
-                ? "bg-emerald-500 text-slate-950"
-                : "bg-slate-900 text-slate-300 hover:bg-slate-800"
-            }`}
-          >
-            {s.label}
-          </Link>
-        ))}
+      <PageHero
+        eyebrow={`${league} · Player engine`}
+        title={
+          <>
+            Find a <span className="text-volt">player</span>
+          </>
+        }
+        copy="Game logs, model projections, and hit rates — information only."
+      />
+
+      <div className="rise rise-1 mt-8 flex flex-wrap items-center gap-3">
+        <div className="flex gap-2">
+          {SPORTS.map((s) => (
+            <Link
+              key={s.key}
+              href={`/players?sport=${s.key}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
+              className={`rounded-xl px-5 py-2.5 text-sm font-bold transition ${
+                s.key === sport ? "tab-active" : "tab-idle"
+              }`}
+            >
+              {s.label}
+            </Link>
+          ))}
+        </div>
       </div>
 
-      <form method="GET" className="mt-4 flex gap-2">
+      <form method="GET" className="rise rise-2 mt-4 flex gap-2">
         <input type="hidden" name="sport" value={sport} />
         <input
           name="q"
           defaultValue={q}
           placeholder={sport === "nfl" ? "e.g. Patrick Mahomes" : "e.g. LeBron James"}
           autoComplete="off"
-          className="w-full max-w-md rounded-lg bg-slate-900 px-4 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          className="input !py-4 !text-base"
         />
-        <button
-          type="submit"
-          className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-emerald-400"
-        >
+        <button type="submit" className="btn-primary shrink-0 !px-7">
           Search
         </button>
       </form>
 
       {q.trim().length >= 2 && (
-        <div className="mt-6">
+        <div className="mt-8">
           {hits.length === 0 ? (
-            <p className="text-sm text-slate-400">
-              No {league} players found for “{q}”. Player stats load as games
-              complete — check back after the next slate.
-            </p>
+            <EmptyState
+              title="No players found"
+              copy={`No ${league} players found for "${q}". Player stats load as games complete — check back after the next slate.`}
+            />
           ) : (
-            <div className="space-y-2">
-              {hits.map((p) => (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {hits.map((p, i) => (
                 <Link
                   key={p.id}
                   href={`/players/${p.id}?sport=${sport}`}
-                  className="block rounded-xl bg-slate-900 p-4 transition hover:bg-slate-800"
+                  className={`card-hover rise rise-${(i % 4) + 1} group flex items-center justify-between gap-3 p-5`}
                 >
-                  <div className="flex items-center justify-between">
-                    <p className="font-bold">
-                      {p.name}{" "}
-                      <span className="ml-1 text-sm font-semibold text-slate-400">
+                  <div className="min-w-0">
+                    <p className="truncate text-lg font-bold text-mist">
+                      {p.name}
+                    </p>
+                    <p className="mt-0.5 flex items-center gap-2 text-xs text-smoke">
+                      <span className="chip-volt !px-2 !py-0.5 !text-[10px]">
                         {p.team}
                       </span>
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      {p.games} game{p.games === 1 ? "" : "s"} logged
+                      <span className="tnum">
+                        {p.games} game{p.games === 1 ? "" : "s"} logged
+                      </span>
                     </p>
                   </div>
+                  <span className="shrink-0 text-xl text-smoke transition group-hover:translate-x-1 group-hover:text-volt">
+                    →
+                  </span>
                 </Link>
               ))}
             </div>
@@ -144,9 +153,25 @@ export default async function PlayersPage({
         </div>
       )}
 
-      <p className="mt-8 text-center text-xs text-slate-500">
-        For information only — not betting advice. 21+.
-      </p>
+      {q.trim().length < 2 && (
+        <div className="mt-12 grid gap-4 sm:grid-cols-3">
+          {[
+            ["◎", "Game logs", "Every logged game, newest first, with the numbers that matter."],
+            ["⬔", "Projections", "Recency-weighted averages over the last 10 played games."],
+            ["◈", "Line grader", "Stack our projection and the player's history against your book's line."],
+          ].map(([glyph, title, desc], i) => (
+            <div key={title} className={`card rise rise-${i + 1} p-6`}>
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-volt-soft text-lg text-volt">
+                {glyph}
+              </span>
+              <p className="mt-3 font-bold text-mist">{title}</p>
+              <p className="mt-1 text-sm leading-relaxed text-fog">{desc}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <RgNotice />
     </main>
   );
 }

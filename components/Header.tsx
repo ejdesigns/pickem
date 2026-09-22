@@ -17,16 +17,32 @@ export default function Header() {
   }
 
   return (
-    <header className="flex items-center justify-between py-5">
-      <Link href="/dashboard" className="text-xl font-extrabold">
-        🏈 Pick&apos;em
+    <header className="flex items-center justify-between gap-3 py-6">
+      <Link href="/dashboard" className="group flex items-center gap-2.5">
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-volt font-display text-lg text-volt-ink shadow-glow-volt transition-transform duration-200 group-hover:-rotate-6">
+          ML
+        </span>
+        <span className="font-display text-xl uppercase tracking-wide text-mist">
+          Pick&apos;em{" "}
+          <span className="hidden text-smoke min-[420px]:inline">
+            / The Morning Line
+          </span>
+        </span>
       </Link>
-      <button
-        onClick={signOut}
-        className="rounded-lg px-3 py-1.5 text-sm text-slate-400 transition hover:bg-slate-900 hover:text-slate-200"
-      >
-        Sign out
-      </button>
+      <div className="flex items-center gap-2">
+        <Link
+          href="/rundown"
+          className="rounded-lg px-3 py-2 text-sm font-semibold text-fog transition hover:bg-white/5 hover:text-mist"
+        >
+          Numbers
+        </Link>
+        <button
+          onClick={signOut}
+          className="rounded-lg px-3 py-2 text-sm font-semibold text-fog transition hover:bg-white/5 hover:text-mist"
+        >
+          Sign out
+        </button>
+      </div>
     </header>
   );
 }
